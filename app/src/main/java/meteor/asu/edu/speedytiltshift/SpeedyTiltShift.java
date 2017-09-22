@@ -56,6 +56,7 @@ public class SpeedyTiltShift {
 
         Log.d("TILTSHIFT_JAVA","hey:"+width+","+height);
         int[] pixels = new int[(width)*(height)];
+        int[] result = new int[(width)*(height)];
         int offset=0;
         int stride = width;
         in.getPixels(pixels,offset,stride,0,0,width,height);
@@ -63,12 +64,19 @@ public class SpeedyTiltShift {
         //Kernel Matrix
         double[] g = new double[50*50];
 
-        int far_a0 = 50;
-        int far_a1 = 100;
-        int near_a2 = 1350;
-        int near_a3 = 1430;
-        float sigma_far = 0.7f;
-        float sigma_near = 0.7f;
+//        int far_a0 = 200;
+//        int far_a1 = 500;
+//        int near_a2 = 850;
+//        int near_a3 = 1230;
+//        float sigma_far = 3.0f;
+//        float sigma_near = 4.0f;
+
+        int far_a0 = a0;
+        int far_a1 = a1;
+        int near_a2 = a2;
+        int near_a3 = a3;
+        float sigma_far = s_far;
+        float sigma_near = s_near;
 
         float sigma;
         int radius;
@@ -80,6 +88,8 @@ public class SpeedyTiltShift {
         double RR;
         double AA;
         int color;
+        int sigma_seven1=0;
+        int sigma_seven2=0;
 
         Color color1 = null;
         Math math = null;
@@ -93,11 +103,18 @@ public class SpeedyTiltShift {
                 sigma = sigma_far;
                 radius = (int)math.ceil(3*sigma);
                 size = (2*radius) + 1;
+                if(sigma < 0.7f){
+                    continue;
+                }
             }
             else if( (y < far_a1) && (y >= far_a0) ){
                 sigma =  (sigma_far * (far_a1 - y)) / (far_a1-far_a0);
                 radius = (int)math.ceil(3*sigma);
                 size = (2*radius) + 1;
+                if(sigma < 0.7f){
+                    sigma_seven1=sigma_seven1+1;
+                    continue;
+                }
             }
             else if( ( y >= far_a1) && (y<=near_a2) ){
                 continue;
@@ -106,11 +123,18 @@ public class SpeedyTiltShift {
                 sigma = (sigma_near * (y - near_a2)) / (near_a3-near_a2);
                 radius = (int)math.ceil(3*sigma);
                 size = (2*radius) + 1;
+                if(sigma < 0.7f){
+                    sigma_seven2=sigma_seven2+1;
+                    continue;
+                }
             }
             else{
                 sigma = sigma_near;
                 radius = (int)math.ceil(3*sigma);
                 size = (2*radius) + 1;
+                if(sigma < 0.7f){
+                    continue;
+                }
             }
 
 
@@ -121,51 +145,28 @@ public class SpeedyTiltShift {
                 GG=0;
                 RR=0;
                 AA=0;
+                //Log.d("Sigma","value:"+sigma);
                 for(int i=0; i<size; i++){
-                    for(int j=0; j<size; j++){
-                        g[size*i+j] =  (math.exp( - ((i*i)+(j*j))/ (2*(sigma * sigma)) ))  / (2* Math.PI * (sigma * sigma));
-                        //Log.d("G", "value="+g[size*i+j]);
-                        //Log.d("GValue", "g["+(5*i+j)+"]"+"="+g[5*i+j]);
-                        //Log.d("ConvolveLoop", "width="+width);
-                        //Log.d("ConvolveLoop", "height="+height);
-                        if( (x+(j-radius)) <0 || (y+(i-radius)) <0 || (x+(j-radius))>= width || (y+(i-radius))>= height) {
-                            BB=BB;
-                            GG=GG;
-                            RR=RR;
-                            //Log.d("x", "value="+(x+(j-3)));
-                            //Log.d("y", "value="+(y+(i-3)));
+                    for(int j=0; j<size; j++) {
+                        g[size * i + j] = (math.exp(-(((i - radius) * (i - radius)) + ((j - radius) * (j - radius))) / (2 * (sigma * sigma)))) / (2 * Math.PI * (sigma * sigma));
 
+                        if ((x + (j - radius)) < 0 || (y + (i - radius)) < 0 || (x + (j - radius)) >= width || (y + (i - radius)) >= height) {
+                            BB = BB;
+                            GG = GG;
+                            RR = RR;
                         }
-
                         else {
-                            conv = pixels[((y + (i-radius)) * width) + (x + (j-radius))];
-                            //Log.d("conv", "value="+conv);
-                            //int compute = (((y + (i-2)) * width) + (x + (j-2)));
-                            //if(compute > height*width) {
-                            //    Log.d("ConvolveLoop", "pixels=" + (((y + (i - 2)) * width) + (x + (j - 2))));
-                            //}
-                            BB =  (BB + (conv & 0xff) * g[size*i+j]);
-                            //Log.d("CONV&0FF","value="+(conv & 0xff));
-                            //Log.d("BB", "value="+BB);
-                            GG =  (GG + (((conv>>8)& 0xff) * g[size*i+j]));
-                            RR =  (RR + (((conv>>16)& 0xff) * g[size*i+j]));
-                            AA = (conv>>24)& 0xff;
+                            conv = pixels[((y + (i - radius)) * width) + (x + (j - radius))];
+                            BB = (BB + (conv & 0xff) * g[size * i + j]);
+                            GG = (GG + (((conv >> 8) & 0xff) * g[size * i + j]));
+                            RR = (RR + (((conv >> 16) & 0xff) * g[size * i + j]));
+                            AA = (conv >> 24) & 0xff;
                         }
-
-
-                        //AA = (conv>>24)& 0xff;
-                        //p = (int) (p + color);
                     }
                 }
-
-                //Log.d("BB", "value="+BB);
-                //Log.d("GG", "value="+GG);
-                //Log.d("RR", "value="+RR);
                 color = ( (int)AA & 0xff) << 24 | ( ((int)RR) & 0xff) << 16 | ( ((int)GG) & 0xff) << 8 | ( ((int)BB) & 0xff);
-                //Log.d("Color", "value="+color);
-                //System.out.print(color);
-
-
+                pixels[y*width+x] = color;
+                //result[y*width+x] = color;
                 // From Google Developer: int color = (A & 0xff) << 24 | (R & 0xff) << 16 | (G & 0xff) << 16 | (B & 0xff);
                 //int p = pixels[y*width+x];
                 //int BB = p & 0xff;
@@ -174,16 +175,13 @@ public class SpeedyTiltShift {
                 //int RR = (p>>16)& 0xff; //set red high
                 //int AA = (p>>24)& 0xff;
                 //int color = (AA & 0xff) << 24 | (RR & 0xff) << 16 | (GG & 0xff) << 8 | (BB & 0xff);
-                pixels[y*width+x] = color;
-
+                // look into this assignment this might be wrong as the next iteration is taking the computed i.e. blurred value and not the original value
                 //Gaussian Weight Vector
-
-
-
             }
         }
         out.setPixels(pixels,offset,stride,0,0,width,height);
-
+        Log.d("SigmaSeven1","value:"+sigma_seven1);
+        Log.d("SigmaSeven2","value:"+sigma_seven2);
         Log.d("TILTSHIFT_JAVA","hey2");
         return out;
     }

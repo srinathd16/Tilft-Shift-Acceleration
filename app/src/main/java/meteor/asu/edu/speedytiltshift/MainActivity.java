@@ -4,9 +4,12 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
+
+import java.util.Objects;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -26,8 +29,16 @@ public class MainActivity extends AppCompatActivity {
         imageView = (ImageView) findViewById(R.id.imageView);
     }
     public void tiltshiftjava(View view){
-        bmpOut = SpeedyTiltShift.tiltshift_java(bmpIn, 100, 200, 300, 400, 0.5f, 2.1f);
+        TextView elapsed_time_tv;
+        elapsed_time_tv = (TextView) findViewById(R.id.textView2);
+        //elapsed_time_tv.append("working...");
+        long current_time = System.currentTimeMillis();
+        bmpOut = SpeedyTiltShift.tiltshift_java(bmpIn, 100, 400, 750, 1350, 0.5f, 0.5f);
+        long elapsed_time = (System.currentTimeMillis() - current_time)/1000;
+        String elapsed_time_string = Objects.toString(elapsed_time);
+        elapsed_time_tv.append(elapsed_time_string+"s");
         imageView.setImageBitmap(bmpOut);
+        Log.d("TILTSHIFT_JAVA","time:"+elapsed_time);
     }
     public void tiltshiftcpp(View view){
         bmpOut = SpeedyTiltShift.tiltshift_cpp(bmpIn, 100, 200, 300, 400, 0.5f, 2.1f);
