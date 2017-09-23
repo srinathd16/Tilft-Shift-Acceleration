@@ -15,38 +15,6 @@ public class SpeedyTiltShift {
         System.loadLibrary("nativetiltshift-lib");
     }
 
-    /* public static Bitmap tiltshift_java(Bitmap in, int a0, int a1, int a2, int a3, float s_far, float s_near){
-        Bitmap out;
-        out=in.copy(in.getConfig(),true);
-
-        int width=in.getWidth();
-        int height=in.getHeight();
-
-        Log.d("TILTSHIFT_JAVA","hey:"+width+","+height);
-        int[] pixels = new int[width*height];
-        int offset=0;
-        int stride = width;
-//        in.getPixels(pixels,offset,stride,0,0,width,height);
-        for (int y=0; y<height; y++){
-            for (int x = 0; x<width; x++){
-                // From Google Developer: int color = (A & 0xff) << 24 | (R & 0xff) << 16 | (G & 0xff) << 16 | (B & 0xff);
-//                int p = pixels[y*width+x];
-//                int BB = p & 0xff;
-//                int GG = (p<<8)& 0xff;
-//                int RR = 0xff;//(p<<16)& 0xff; //set red high
-//                int AA = (p<<24)& 0xff;
-//                int color = (AA & 0xff) << 24 | (RR & 0xff) << 16 | (GG & 0xff) << 8 | (BB & 0xff);
-//                pixels[y*width+x] = color;
-            }
-        }
-//        out.setPixels(pixels,offset,stride,0,0,width,height);
-
-        Log.d("TILTSHIFT_JAVA","hey2");
-        return out;
-    }
-
-    */
-
     public static Bitmap tiltshift_java(Bitmap in, int a0, int a1, int a2, int a3, float s_far, float s_near){
         Bitmap out;
         out=in.copy(in.getConfig(),true);
@@ -61,15 +29,8 @@ public class SpeedyTiltShift {
         int stride = width;
         in.getPixels(pixels,offset,stride,0,0,width,height);
 
-        //Kernel Matrix
+        //Defining a kennel matrix, large enough to support up to a sigma value of 6
         double[] g = new double[50*50];
-
-//        int far_a0 = 200;
-//        int far_a1 = 500;
-//        int near_a2 = 850;
-//        int near_a3 = 1230;
-//        float sigma_far = 3.0f;
-//        float sigma_near = 4.0f;
 
         int far_a0 = a0;
         int far_a1 = a1;
@@ -93,11 +54,9 @@ public class SpeedyTiltShift {
 
         Color color1 = null;
         Math math = null;
-        //Log.d("red", "value"+color1.red(pixels[1000]));
-        //Log.d("green", "value"+color1.green(pixels[1000]));
-        //Log.d("blue", "value"+color1.blue(pixels[1000]));
-        //Log.d("pixel", "value"+(pixels[1000]>>8 & 0xff));
 
+        //Dynamic computation of sigma value for far, near, a1, a2, and a3 regions
+        //Pixels for when sigma is less than 0.7 are left alone
         for (int y=0; y<height; y++){
             if(y < far_a0){
                 sigma = sigma_far;
@@ -139,13 +98,16 @@ public class SpeedyTiltShift {
 
 
             for (int x = 0; x<width; x++){
-                //Convolution
+                //Convolution Algorithm
                 p=0;
                 BB=0;
                 GG=0;
                 RR=0;
                 AA=0;
                 //Log.d("Sigma","value:"+sigma);
+
+                //Evaluating each entry of the Kernel Matrix
+                //Computation of convolution is disabled for the region of the image that is in Focus
                 for(int i=0; i<size; i++){
                     for(int j=0; j<size; j++) {
                         g[size * i + j] = (math.exp(-(((i - radius) * (i - radius)) + ((j - radius) * (j - radius))) / (2 * (sigma * sigma)))) / (2 * Math.PI * (sigma * sigma));
@@ -166,20 +128,11 @@ public class SpeedyTiltShift {
                 }
                 color = ( (int)AA & 0xff) << 24 | ( ((int)RR) & 0xff) << 16 | ( ((int)GG) & 0xff) << 8 | ( ((int)BB) & 0xff);
                 pixels[y*width+x] = color;
-                //result[y*width+x] = color;
-                // From Google Developer: int color = (A & 0xff) << 24 | (R & 0xff) << 16 | (G & 0xff) << 16 | (B & 0xff);
-                //int p = pixels[y*width+x];
-                //int BB = p & 0xff;
-                //int BB = -1;
-                //int GG = (p>>8)& 0xff;
-                //int RR = (p>>16)& 0xff; //set red high
-                //int AA = (p>>24)& 0xff;
-                //int color = (AA & 0xff) << 24 | (RR & 0xff) << 16 | (GG & 0xff) << 8 | (BB & 0xff);
-                // look into this assignment this might be wrong as the next iteration is taking the computed i.e. blurred value and not the original value
-                //Gaussian Weight Vector
             }
         }
+        //Setting the computed pixels into the Bitmap object
         out.setPixels(pixels,offset,stride,0,0,width,height);
+
         Log.d("SigmaSeven1","value:"+sigma_seven1);
         Log.d("SigmaSeven2","value:"+sigma_seven2);
         Log.d("TILTSHIFT_JAVA","hey2");
