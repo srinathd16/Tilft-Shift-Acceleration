@@ -133,9 +133,6 @@ public class SpeedyTiltShift {
         //Setting the computed pixels into the Bitmap object
         out.setPixels(pixels,offset,stride,0,0,width,height);
 
-        Log.d("SigmaSeven1","value:"+sigma_seven1);
-        Log.d("SigmaSeven2","value:"+sigma_seven2);
-        Log.d("TILTSHIFT_JAVA","hey2");
         return out;
     }
     public static Bitmap tiltshift_cpp(Bitmap in, int a0, int a1, int a2, int a3, float s_far, float s_near){
