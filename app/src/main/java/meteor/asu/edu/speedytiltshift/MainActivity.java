@@ -42,18 +42,45 @@ public class MainActivity extends AppCompatActivity {
         //Computing elapsed time
         long elapsed_time = (System.currentTimeMillis() - current_time)/1000;
         String elapsed_time_string = Objects.toString(elapsed_time);
-        elapsed_time_text.append(elapsed_time_string+"s");
+        elapsed_time_text.setText("Java Elapsed Time: "+elapsed_time_string+"s");
 
         //Pushing the output image into the ImageView object
         imageView.setImageBitmap(bmpOut);
         Log.d("TILTSHIFT_JAVA","time:"+elapsed_time);
     }
     public void tiltshiftcpp(View view){
-        bmpOut = SpeedyTiltShift.tiltshift_cpp(bmpIn, 100, 200, 300, 400, 0.5f, 2.1f);
+        //Defining a TextView object and capturing current time to calculate elapsed time
+        TextView elapsed_time_text;
+        elapsed_time_text = (TextView) findViewById(R.id.textView3);
+        long current_time = System.currentTimeMillis();
+
+        //Calling tiltshift_java
+        bmpOut = SpeedyTiltShift.tiltshift_cpp(bmpIn, 100, 400, 750, 1350, 5.0f, 5.0f);
+
+        //Computing elapsed time
+        long elapsed_time = (System.currentTimeMillis() - current_time)/1000;
+        String elapsed_time_string = Objects.toString(elapsed_time);
+        elapsed_time_text.setText("C++ Elapsed Time: "+elapsed_time_string+"s");
+
+        //Pushing the output image into the ImageView object
         imageView.setImageBitmap(bmpOut);
     }
     public void tiltshiftneon(View view){
-        bmpOut = SpeedyTiltShift.tiltshift_neon(bmpIn, 100, 200, 300, 400, 0.5f, 2.1f);
+        //Defining a TextView object and capturing current time to calculate elapsed time
+        TextView elapsed_time_text;
+        elapsed_time_text = (TextView) findViewById(R.id.textView);
+        long current_time = System.currentTimeMillis();
+
+        //Calling tiltshift_neon
+        bmpOut = SpeedyTiltShift.tiltshift_neon(bmpIn, 100, 400, 750, 1350, 5.0f, 5.0f);
+
+        //Computing elapsed time
+        long elapsed_time = (System.currentTimeMillis() - current_time)/1000;
+        String elapsed_time_string = Objects.toString(elapsed_time);
+        elapsed_time_text.setText("C++ Elapsed Time: "+elapsed_time_string+"s");
+
+        //Pushing the output image into the ImageView object
+
         imageView.setImageBitmap(bmpOut);
     }
 }

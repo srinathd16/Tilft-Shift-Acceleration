@@ -30,7 +30,7 @@ public class SpeedyTiltShift {
         in.getPixels(pixels,offset,stride,0,0,width,height);
 
         //Defining a kennel matrix, large enough to support up to a sigma value of 6
-        double[] g = new double[50*50];
+        double[] g = new double[1*50];
 
         int far_a0 = a0;
         int far_a1 = a1;
@@ -96,8 +96,12 @@ public class SpeedyTiltShift {
                 }
             }
 
+            for(int j=0; j<size; j++) {
+                g[j] = (math.exp(-(((j - radius) * (j - radius))) / (2 * (sigma * sigma)))) / Math.pow((2 * Math.PI * (sigma * sigma)), 0.5);
+            }
 
-            for (int x = 0; x<width; x++){
+
+                    for (int x = 0; x<width; x++){
                 //Convolution Algorithm
                 p=0;
                 BB=0;
@@ -108,20 +112,48 @@ public class SpeedyTiltShift {
 
                 //Evaluating each entry of the Kernel Matrix
                 //Computation of convolution is disabled for the region of the image that is in Focus
-                for(int i=0; i<size; i++){
-                    for(int j=0; j<size; j++) {
-                        g[size * i + j] = (math.exp(-(((i - radius) * (i - radius)) + ((j - radius) * (j - radius))) / (2 * (sigma * sigma)))) / (2 * Math.PI * (sigma * sigma));
 
-                        if ((x + (j - radius)) < 0 || (y + (i - radius)) < 0 || (x + (j - radius)) >= width || (y + (i - radius)) >= height) {
+                //Vector-1
+                for(int j=0; j<size; j++){
+                    {
+                        //g[j] = (math.exp(-(((j - radius) * (j - radius))) / (2 * (sigma * sigma)))) / Math.pow((2 * Math.PI * (sigma * sigma)),0.5);
+
+                        if ((x + (j - radius)) < 0 || (x + (j - radius)) >= width){
                             BB = BB;
                             GG = GG;
                             RR = RR;
                         }
                         else {
-                            conv = pixels[((y + (i - radius)) * width) + (x + (j - radius))];
-                            BB = (BB + (conv & 0xff) * g[size * i + j]);
-                            GG = (GG + (((conv >> 8) & 0xff) * g[size * i + j]));
-                            RR = (RR + (((conv >> 16) & 0xff) * g[size * i + j]));
+                            conv = pixels[((y) * width) + (x + (j - radius))];
+                            BB = (BB + (conv & 0xff) * g[j]);
+                            GG = (GG + (((conv >> 8) & 0xff) * g[j]));
+                            RR = (RR + (((conv >> 16) & 0xff) * g[j]));
+                            AA = (conv >> 24) & 0xff;
+                        }
+                    }
+                }
+                color = ( (int)AA & 0xff) << 24 | ( ((int)RR) & 0xff) << 16 | ( ((int)GG) & 0xff) << 8 | ( ((int)BB) & 0xff);
+                pixels[y*width+x] = color;
+
+                //Vector-2
+                BB=0;
+                GG=0;
+                RR=0;
+                AA=0;
+                for(int i=0; i<size; i++){
+                    {
+                        //g[i] = (math.exp(-(((i - radius) * (i - radius))) / (2 * (sigma * sigma)))) / Math.pow((2 * Math.PI * (sigma * sigma)),0.5);
+
+                        if ((y + (i - radius)) < 0 || (y + (i - radius)) >= height){
+                            BB = BB;
+                            GG = GG;
+                            RR = RR;
+                        }
+                        else {
+                            conv = pixels[((y+(i - radius)) * width) + (x)];
+                            BB = (BB + (conv & 0xff) * g[i]);
+                            GG = (GG + (((conv >> 8) & 0xff) * g[i]));
+                            RR = (RR + (((conv >> 16) & 0xff) * g[i]));
                             AA = (conv >> 24) & 0xff;
                         }
                     }
@@ -129,18 +161,47 @@ public class SpeedyTiltShift {
                 color = ( (int)AA & 0xff) << 24 | ( ((int)RR) & 0xff) << 16 | ( ((int)GG) & 0xff) << 8 | ( ((int)BB) & 0xff);
                 pixels[y*width+x] = color;
             }
+
         }
+
         //Setting the computed pixels into the Bitmap object
         out.setPixels(pixels,offset,stride,0,0,width,height);
 
         return out;
     }
     public static Bitmap tiltshift_cpp(Bitmap in, int a0, int a1, int a2, int a3, float s_far, float s_near){
+        Bitmap out;
+        out=in.copy(in.getConfig(),true);
+        int imgW = in.getWidth();
+        int imgH = in.getHeight();
+        int offset=0;
+        int stride = imgW;
 
-        return in;
+        int[] pixels = new int[(imgW)*(imgH)];
+        in.getPixels(pixels,offset,stride,0,0,imgW,imgH);
+
+        nativeTiltShift(pixels, imgW, imgH, a0, a1, a2, a3, s_far, s_near);
+
+        Log.d("TILTSHIFT_CPP","width: "+imgW+" height:"+imgH);
+
+        out.setPixels(pixels,offset,stride,0,0,imgW,imgH);
+        return out;
     }
     public static Bitmap tiltshift_neon(Bitmap in, int a0, int a1, int a2, int a3, float s_far, float s_near){
-        return in;
+        Bitmap out;
+        out=in.copy(in.getConfig(),true);
+        int imgW = in.getWidth();
+        int imgH = in.getHeight();
+        int offset=0;
+        int stride = imgW;
+
+        int[] pixels = new int[(imgW)*(imgH)];
+        in.getPixels(pixels,offset,stride,0,0,imgW,imgH);
+
+        nativeTiltShiftNeon(pixels, imgW, imgH, a0, a1, a2, a3, s_far, s_near);
+
+        out.setPixels(pixels,offset,stride,0,0,imgW,imgH);
+        return out;
     }
     private static native int[] nativeTiltShift(int[] pixels, int imgW, int imgH, int a0, int a1, int a2, int a3, float s_far, float s_near);
     private static native int[] nativeTiltShiftNeon(int[] pixels, int imgW, int imgH, int a0, int a1, int a2, int a3, float s_far, float s_near);

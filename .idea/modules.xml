@@ -2,8 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/SpeedyTiltShift-master.iml" filepath="$PROJECT_DIR$/SpeedyTiltShift-master.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/eee598-tiltshift-sakalabattula-konda-dasari.iml" filepath="$PROJECT_DIR$/eee598-tiltshift-sakalabattula-konda-dasari.iml" />
     </modules>
   </component>
 </project>
