@@ -1,7 +1,9 @@
 package meteor.asu.edu.speedytiltshift;
 
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.net.Uri;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -9,7 +11,10 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import java.io.FileNotFoundException;
+import java.io.InputStream;
 import java.util.Objects;
 
 public class MainActivity extends AppCompatActivity {
@@ -18,26 +23,138 @@ public class MainActivity extends AppCompatActivity {
     private Bitmap bmpIn;
     private Bitmap bmpOut;
     private ImageView imageView;
+    private Button button;
+    private Button button3;
+    private Button button2;
+    private Button button5;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        imageView = (ImageView) findViewById(R.id.imageView);
 
+        //Disabling TILT SHIFT (JAVA)
+        button3 = (Button) findViewById(R.id.button3);
+        button3.setAlpha(0.5f);
+        button3.setClickable(false);
+        //Disabling TILT SHIFT (C++)
+        button2 = (Button) findViewById(R.id.button2);
+        button2.setAlpha(0.5f);
+        button2.setClickable(false);
+        //Disabling TILT SHIFT (NEON)
+        button5 = (Button) findViewById(R.id.button5);
+        button5.setAlpha(0.5f);
+        button5.setClickable(false);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
+        super.onActivityResult(requestCode, resultCode, intent);
+
+        if (resultCode == RESULT_OK) {
+            try {
+                Uri imageUri = intent.getData();
+                InputStream imageStream = getContentResolver().openInputStream(imageUri);
+                Bitmap selectedImage = BitmapFactory.decodeStream(imageStream);
+                imageView.setImageBitmap(selectedImage);
+                //Bitmap scaledBitmap = Bitmap.createScaledBitmap(selectedImage,590,470,false);
+                //Log.d("BMPVALID", "bmpin.config: "+scaledBitmap.getConfig());
+
+                BitmapFactory.Options opts = new BitmapFactory.Options();
+                opts.inPreferredConfig = Bitmap.Config.ARGB_8888; // Each pixel is 4 bytes: Alpha, Red, Green, Blue
+                bmpIn = BitmapFactory.decodeResource(getResources(), R.drawable.input, opts);
+                imageView = (ImageView) findViewById(R.id.imageView);
+                //bmpIn = BitmapFactory.decodeStream(imageStream, null, opts);
+                //imageView = (ImageView) findViewById(R.id.imageView);
+
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+                Toast.makeText(this, "Failed!", Toast.LENGTH_LONG).show();
+            }
+
+        }else {
+            Toast.makeText(this, "Image not found",Toast.LENGTH_LONG).show();
+        }
+    }
+
+    //This function is invoked upon the button click of ORIGINAL in the MainActivity
+    public void displayoriginalimage(View view){
         BitmapFactory.Options opts = new BitmapFactory.Options();
         opts.inPreferredConfig = Bitmap.Config.ARGB_8888; // Each pixel is 4 bytes: Alpha, Red, Green, Blue
         bmpIn = BitmapFactory.decodeResource(getResources(), R.drawable.input, opts);
         imageView = (ImageView) findViewById(R.id.imageView);
+        //And when clicked, the input image is displayed
+        imageView.setImageBitmap(bmpIn);
+        //Greying out ORIGINAL button after click
+        button = (Button) findViewById(R.id.button);
+        button.setAlpha(0.5f);
+        button.setClickable(false);
+
+        //Getting back TILT SHIFT (JAVA) button live
+        button3 = (Button) findViewById(R.id.button3);
+        if(button3.getAlpha()==0.5f){
+            button3.setAlpha(1.0f);
+            button3.setClickable(true);
+        }
+        //Getting back TILT SHIFT (C++) button live
+        button2 = (Button) findViewById(R.id.button2);
+        if(button2.getAlpha()==0.5f){
+            button2.setAlpha(1.0f);
+            button2.setClickable(true);
+        }
+        //Getting back TILT SHIFT (NEON) button live
+        button5 = (Button) findViewById(R.id.button5);
+        if(button5.getAlpha()==0.5f){
+            button5.setAlpha(1.0f);
+            button5.setClickable(true);
+        }
     }
 
+    public void loadimage(View view){
+        Intent galleryIntent = new Intent(Intent.ACTION_PICK);
+        galleryIntent.setType("image/*");
+        startActivityForResult(galleryIntent, 1);
+
+        //Getting back TILT SHIFT (JAVA) button live
+        button3 = (Button) findViewById(R.id.button3);
+        if(button3.getAlpha()==0.5f){
+            button3.setAlpha(1.0f);
+            button3.setClickable(true);
+        }
+        //Getting back TILT SHIFT (C++) button live
+        button2 = (Button) findViewById(R.id.button2);
+        if(button2.getAlpha()==0.5f){
+            button2.setAlpha(1.0f);
+            button2.setClickable(true);
+        }
+        //Getting back TILT SHIFT (NEON) button live
+        button5 = (Button) findViewById(R.id.button5);
+        if(button5.getAlpha()==0.5f){
+            button5.setAlpha(1.0f);
+            button5.setClickable(true);
+        }
+    }
+
+    //This function is invoked upon the button click of TILT SHIFT (JAVA) in the MainActivity
     public void tiltshiftjava(View view){
+        //Greying out TILT SHIFT (JAVA) button after click
+        button3 = (Button) findViewById(R.id.button3);
+        button3.setAlpha(0.5f);
+        button3.setClickable(false);
+        //Getting back ORIGINAL button live
+        button = (Button) findViewById(R.id.button);
+        if(button.getAlpha()==0.5f){
+            button.setAlpha(1.0f);
+            button.setClickable(true);
+        }
         //Defining a TextView object and capturing current time to calculate elapsed time
         TextView elapsed_time_text;
         elapsed_time_text = (TextView) findViewById(R.id.textView2);
         long current_time = System.currentTimeMillis();
 
         //Calling tiltshift_java
-        bmpOut = SpeedyTiltShift.tiltshift_java(bmpIn, 100, 400, 750, 1350, 5.0f, 5.0f);
+        bmpOut = SpeedyTiltShift.tiltshift_java(bmpIn, 100, 400, 750, 1350, 10.0f, 10.0f);
 
         //Computing elapsed time
         long elapsed_time = (System.currentTimeMillis() - current_time)/1000;
@@ -48,14 +165,26 @@ public class MainActivity extends AppCompatActivity {
         imageView.setImageBitmap(bmpOut);
         Log.d("TILTSHIFT_JAVA","time:"+elapsed_time);
     }
+
+    //This function is invoked upon the button click of TILT SHIFT (C++) in the MainActivity
     public void tiltshiftcpp(View view){
+        //Greying out TILT SHIFT (C++) button after click
+        button2 = (Button) findViewById(R.id.button2);
+        button2.setAlpha(0.5f);
+        button2.setClickable(false);
+        //Getting back ORIGINAL button live
+        button = (Button) findViewById(R.id.button);
+        if(button.getAlpha()==0.5f){
+            button.setAlpha(1.0f);
+            button.setClickable(true);
+        }
         //Defining a TextView object and capturing current time to calculate elapsed time
         TextView elapsed_time_text;
         elapsed_time_text = (TextView) findViewById(R.id.textView3);
         long current_time = System.currentTimeMillis();
 
         //Calling tiltshift_java
-        bmpOut = SpeedyTiltShift.tiltshift_cpp(bmpIn, 100, 400, 750, 1350, 5.0f, 5.0f);
+        bmpOut = SpeedyTiltShift.tiltshift_cpp(bmpIn, 100, 400, 750, 1350, 7.0f, 7.0f);
 
         //Computing elapsed time
         long elapsed_time = (System.currentTimeMillis() - current_time)/1000;
@@ -65,22 +194,33 @@ public class MainActivity extends AppCompatActivity {
         //Pushing the output image into the ImageView object
         imageView.setImageBitmap(bmpOut);
     }
+
+    //This function is invoked upon the button click of TILT SHIFT (NEON) in the MainActivity
     public void tiltshiftneon(View view){
+        //Greying out TILT SHIFT (NEON) button after click
+        button5 = (Button) findViewById(R.id.button5);
+        button5.setAlpha(0.5f);
+        button5.setClickable(false);
+        //Getting back ORIGINAL button live
+        button = (Button) findViewById(R.id.button);
+        if(button.getAlpha()==0.5f){
+            button.setAlpha(1.0f);
+            button.setClickable(true);
+        }
         //Defining a TextView object and capturing current time to calculate elapsed time
         TextView elapsed_time_text;
         elapsed_time_text = (TextView) findViewById(R.id.textView);
         long current_time = System.currentTimeMillis();
 
         //Calling tiltshift_neon
-        bmpOut = SpeedyTiltShift.tiltshift_neon(bmpIn, 100, 400, 750, 1350, 5.0f, 5.0f);
+        bmpOut = SpeedyTiltShift.tiltshift_neon(bmpIn, 100, 400, 750, 1350, 3.0f, 3.0f);
 
         //Computing elapsed time
         long elapsed_time = (System.currentTimeMillis() - current_time)/1000;
         String elapsed_time_string = Objects.toString(elapsed_time);
-        elapsed_time_text.setText("C++ Elapsed Time: "+elapsed_time_string+"s");
+        elapsed_time_text.setText("Neon Elapsed Time: "+elapsed_time_string+"s");
 
         //Pushing the output image into the ImageView object
-
         imageView.setImageBitmap(bmpOut);
     }
 }

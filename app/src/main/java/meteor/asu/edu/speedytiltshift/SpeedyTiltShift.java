@@ -1,9 +1,11 @@
 package meteor.asu.edu.speedytiltshift;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.util.Log;
+import android.widget.Toast;
 
 /**
  * Created by roblkw on 7/26/17.
@@ -17,20 +19,21 @@ public class SpeedyTiltShift {
 
     public static Bitmap tiltshift_java(Bitmap in, int a0, int a1, int a2, int a3, float s_far, float s_near){
         Bitmap out;
-        out=in.copy(in.getConfig(),true);
+        out = in.copy(in.getConfig(), true);
 
         int width=in.getWidth();
         int height=in.getHeight();
 
         Log.d("TILTSHIFT_JAVA","hey:"+width+","+height);
         int[] pixels = new int[(width)*(height)];
+        int[] new_pixels = new int[(width)*(height)];
         int[] result = new int[(width)*(height)];
         int offset=0;
         int stride = width;
         in.getPixels(pixels,offset,stride,0,0,width,height);
 
         //Defining a kennel matrix, large enough to support up to a sigma value of 6
-        double[] g = new double[1*50];
+        double[] g = new double[1*70];
 
         int far_a0 = a0;
         int far_a1 = a1;
