@@ -90,6 +90,7 @@
 
     <TextView
         android:id="@+id/textView"
+        android:textColor="#6495ed"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="NEON Elapsed Time: "
@@ -101,6 +102,7 @@
 
     <TextView
         android:id="@+id/textView3"
+        android:textColor="#6495ed"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="C++ Elapsed Time: "
@@ -112,6 +114,7 @@
 
     <TextView
         android:id="@+id/textView2"
+        android:textColor="#6495ed"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Java Elapsed Time: "
