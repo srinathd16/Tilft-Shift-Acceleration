@@ -1,9 +1,13 @@
 package meteor.asu.edu.speedytiltshift;
 
+import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.os.Environment;
+import android.provider.OpenableColumns;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -13,7 +17,10 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.Objects;
 
@@ -27,6 +34,7 @@ public class MainActivity extends AppCompatActivity {
     private Button button3;
     private Button button2;
     private Button button5;
+    private Button button6;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,6 +54,11 @@ public class MainActivity extends AppCompatActivity {
         button5 = (Button) findViewById(R.id.button5);
         button5.setAlpha(0.5f);
         button5.setClickable(false);
+
+        //Disabling SAVE
+        button6 = (Button) findViewById(R.id.button6);
+        button6.setAlpha(0.5f);
+        button6.setClickable(false);
     }
 
     @Override
@@ -55,17 +68,28 @@ public class MainActivity extends AppCompatActivity {
         if (resultCode == RESULT_OK) {
             try {
                 Uri imageUri = intent.getData();
+                //Cursor returnCursor = getContentResolver().query(imageUri, null, null, null, null);
+                //int nameIndex = returnCursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                //String fname = returnCursor.getString(nameIndex);
                 InputStream imageStream = getContentResolver().openInputStream(imageUri);
                 Bitmap selectedImage = BitmapFactory.decodeStream(imageStream);
                 imageView.setImageBitmap(selectedImage);
-                //Bitmap scaledBitmap = Bitmap.createScaledBitmap(selectedImage,590,470,false);
-                //Log.d("BMPVALID", "bmpin.config: "+scaledBitmap.getConfig());
 
-                BitmapFactory.Options opts = new BitmapFactory.Options();
-                opts.inPreferredConfig = Bitmap.Config.ARGB_8888; // Each pixel is 4 bytes: Alpha, Red, Green, Blue
-                bmpIn = BitmapFactory.decodeResource(getResources(), R.drawable.input, opts);
+
+                //Log.d("INPUT_FILE_PATH", "path= "+fname);
+                Bitmap scaledBitmap = Bitmap.createScaledBitmap(selectedImage,590,470,false);
+
+                ///Following code assigns the image obtained from Gallery into "bmpIn"
+                ///Comment the following lines, if using the below segment to load the image from /drawable
+                ///Configuration of the following Bitmap object bmpIn is retained to be ARGB_8888
+                bmpIn = scaledBitmap;
                 imageView = (ImageView) findViewById(R.id.imageView);
-                //bmpIn = BitmapFactory.decodeStream(imageStream, null, opts);
+                Log.d("BMPCONFIG", "bmpin.config: "+bmpIn.getConfig());
+
+                ///Uncomment the following to load images from /drawable
+                //BitmapFactory.Options opts = new BitmapFactory.Options();
+                //opts.inPreferredConfig = Bitmap.Config.ARGB_8888; // Each pixel is 4 bytes: Alpha, Red, Green, Blue
+                //bmpIn = BitmapFactory.decodeResource(getResources(), R.drawable.input, opts);
                 //imageView = (ImageView) findViewById(R.id.imageView);
 
             } catch (FileNotFoundException e) {
@@ -80,11 +104,11 @@ public class MainActivity extends AppCompatActivity {
 
     //This function is invoked upon the button click of ORIGINAL in the MainActivity
     public void displayoriginalimage(View view){
-        BitmapFactory.Options opts = new BitmapFactory.Options();
-        opts.inPreferredConfig = Bitmap.Config.ARGB_8888; // Each pixel is 4 bytes: Alpha, Red, Green, Blue
-        bmpIn = BitmapFactory.decodeResource(getResources(), R.drawable.input, opts);
-        imageView = (ImageView) findViewById(R.id.imageView);
-        //And when clicked, the input image is displayed
+        //BitmapFactory.Options opts = new BitmapFactory.Options();
+        //opts.inPreferredConfig = Bitmap.Config.ARGB_8888; // Each pixel is 4 bytes: Alpha, Red, Green, Blue
+        //bmpIn = BitmapFactory.decodeResource(getResources(), R.drawable.input, opts);
+        //imageView = (ImageView) findViewById(R.id.imageView);
+        ///And when clicked, the input image is displayed
         imageView.setImageBitmap(bmpIn);
         //Greying out ORIGINAL button after click
         button = (Button) findViewById(R.id.button);
@@ -136,6 +160,41 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    public void saveimage(View view) throws IOException {
+        Log.d("ExternalStorageWritable", ""+isExternalStorageWritable());
+        getAlbumStorageDir(this, "TiltShift");
+        //Disabling SAVE
+        button6 = (Button) findViewById(R.id.button6);
+        button6.setAlpha(0.5f);
+        button6.setClickable(false);
+    }
+
+    public boolean isExternalStorageWritable() {
+        String state = Environment.getExternalStorageState();
+        if (Environment.MEDIA_MOUNTED.equals(state)) {
+            return true;
+        }
+        return false;
+    }
+
+    public File getAlbumStorageDir(Context context, String albumName) throws IOException {
+        // Get the directory for the app's private pictures directory.
+        File file = new File(context.getExternalFilesDir(
+                Environment.DIRECTORY_PICTURES), albumName);
+        String fname = "Blurred_Image" + ".jpg";
+        File fileWithName = new File(file, fname);
+        FileOutputStream fo = new FileOutputStream(fileWithName);
+        bmpOut.compress(Bitmap.CompressFormat.JPEG, 90, fo);
+        fo.flush();
+        fo.close();
+        if (!file.mkdirs()) {
+            Log.e("LOG_TAG", "Directory not created");
+        }
+        Log.d("getAlbumStorageDir", "path = "+file.getAbsolutePath());
+        return file;
+
+    }
+
     //This function is invoked upon the button click of TILT SHIFT (JAVA) in the MainActivity
     public void tiltshiftjava(View view){
         //Greying out TILT SHIFT (JAVA) button after click
@@ -148,18 +207,22 @@ public class MainActivity extends AppCompatActivity {
             button.setAlpha(1.0f);
             button.setClickable(true);
         }
+        //Getting back SAVE button live
+        button6 = (Button) findViewById(R.id.button6);
+        button6.setAlpha(1f);
+        button6.setClickable(true);
         //Defining a TextView object and capturing current time to calculate elapsed time
         TextView elapsed_time_text;
         elapsed_time_text = (TextView) findViewById(R.id.textView2);
         long current_time = System.currentTimeMillis();
 
         //Calling tiltshift_java
-        bmpOut = SpeedyTiltShift.tiltshift_java(bmpIn, 100, 400, 750, 1350, 10.0f, 10.0f);
+        bmpOut = SpeedyTiltShift.tiltshift_java(bmpIn, 100, 150, 280, 370, 10.0f, 10.0f);
 
         //Computing elapsed time
-        long elapsed_time = (System.currentTimeMillis() - current_time)/1000;
+        long elapsed_time = (System.currentTimeMillis() - current_time);
         String elapsed_time_string = Objects.toString(elapsed_time);
-        elapsed_time_text.setText("Java Elapsed Time: "+elapsed_time_string+"s");
+        elapsed_time_text.setText("Java Elapsed Time: "+elapsed_time_string+"ms");
 
         //Pushing the output image into the ImageView object
         imageView.setImageBitmap(bmpOut);
@@ -178,18 +241,22 @@ public class MainActivity extends AppCompatActivity {
             button.setAlpha(1.0f);
             button.setClickable(true);
         }
+        //Getting back SAVE button live
+        button6 = (Button) findViewById(R.id.button6);
+        button6.setAlpha(1f);
+        button6.setClickable(true);
         //Defining a TextView object and capturing current time to calculate elapsed time
         TextView elapsed_time_text;
         elapsed_time_text = (TextView) findViewById(R.id.textView3);
         long current_time = System.currentTimeMillis();
 
         //Calling tiltshift_java
-        bmpOut = SpeedyTiltShift.tiltshift_cpp(bmpIn, 100, 400, 750, 1350, 7.0f, 7.0f);
+        bmpOut = SpeedyTiltShift.tiltshift_cpp(bmpIn, 100, 150, 280, 370, 7.0f, 7.0f);
 
         //Computing elapsed time
-        long elapsed_time = (System.currentTimeMillis() - current_time)/1000;
+        long elapsed_time = (System.currentTimeMillis() - current_time);
         String elapsed_time_string = Objects.toString(elapsed_time);
-        elapsed_time_text.setText("C++ Elapsed Time: "+elapsed_time_string+"s");
+        elapsed_time_text.setText("C++ Elapsed Time: "+elapsed_time_string+"ms");
 
         //Pushing the output image into the ImageView object
         imageView.setImageBitmap(bmpOut);
@@ -207,18 +274,22 @@ public class MainActivity extends AppCompatActivity {
             button.setAlpha(1.0f);
             button.setClickable(true);
         }
+        //Getting back SAVE button live
+        button6 = (Button) findViewById(R.id.button6);
+        button6.setAlpha(1f);
+        button6.setClickable(true);
         //Defining a TextView object and capturing current time to calculate elapsed time
         TextView elapsed_time_text;
         elapsed_time_text = (TextView) findViewById(R.id.textView);
         long current_time = System.currentTimeMillis();
 
         //Calling tiltshift_neon
-        bmpOut = SpeedyTiltShift.tiltshift_neon(bmpIn, 100, 400, 750, 1350, 3.0f, 3.0f);
+        bmpOut = SpeedyTiltShift.tiltshift_neon(bmpIn, 100, 150, 280, 370, 3.0f, 3.0f);
 
         //Computing elapsed time
-        long elapsed_time = (System.currentTimeMillis() - current_time)/1000;
+        long elapsed_time = (System.currentTimeMillis() - current_time);
         String elapsed_time_string = Objects.toString(elapsed_time);
-        elapsed_time_text.setText("Neon Elapsed Time: "+elapsed_time_string+"s");
+        elapsed_time_text.setText("Neon Elapsed Time: "+elapsed_time_string+"ms");
 
         //Pushing the output image into the ImageView object
         imageView.setImageBitmap(bmpOut);

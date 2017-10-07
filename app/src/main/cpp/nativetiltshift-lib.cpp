@@ -4,35 +4,41 @@
 #include <math.h>
 #include <android/log.h>
 
+using namespace std;
+
 extern "C" {
 JNIEXPORT jintArray JNICALL
+
+/**Native C++ implementation of the Speedy Tilt Shift algorithm
+ * This method is called by SpeedyTiltShift.java (i.e., Java environment)
+ * This method uses JNI components such as jint, jfloat, jintArray, etc., to obtain variables from the Java environment
+ * Variables obtained as such are,
+ *                                  _pixels       - represeting the pixels array of the input Bitmap image
+ *                                  s_far, s_near - absolute boundaries that define the gradient in blur
+ *                                  a0-a3         - intermediate boundaries that define the gradient in blur between the absolute boundaries
+ * This method,
+ *              -Initially unwraps the variables and arrays obtained from the Java environment for relevant local usage.
+ *              -Later implements a convolution algorithm using a Kernel Weight Vector which is convoled with the pixels horizontally at first
+ *               followed by convolving the pixels vertically.
+ *              -Finally, returns the convolved pixels as an array back to the Java (caller) function, where the output Bitmap image is returned.
+ *
+*/
 Java_meteor_asu_edu_speedytiltshift_SpeedyTiltShift_nativeTiltShift(JNIEnv *env,
                                                                     jobject This,
                                                                     jintArray pixels_,
                                                                     jint width, jint height,
                                                                     jint a0, jint a1, jint a2, jint a3, jfloat s_far, jfloat s_near
                                                                     ) {
-    int32x4_t sum_vec = vdupq_n_s32(0);
+    ///Declaring and obtaining the pixels of the input Bitmap image from the caller Java function, using jint and jint array
     jint *pixels = env->GetIntArrayElements(pixels_, NULL);
     long length = env->GetArrayLength(pixels_);
     jintArray pixelsOut = env->NewIntArray(length);
 
-    //Defining a kennel matrix, large enough to support up to a sigma value of 6
+    ///Defining a kennel matrix, large enough to support up to a sigma value of 6
     double k[70];
 
-/*
-    for(int i=0; i<50; i++){
-        k[i]=0;
-    }
 
-    for(int x=0; x<length; x++){
-            __android_log_print(ANDROID_LOG_INFO, "Kernel K", "K[j]= %d", pixels[x]);
-    }
-*/
-
-    //__android_log_print(ANDROID_LOG_INFO, "Params", "a0= %d, a1 = %d, a2 = %d, a3 = %d, s_far = %f, s_near = %f", a0, a1, a2, a3, s_far, s_near);
-
-
+    ///Declaring a and sigma variables for local use
     int far_a0 = a0;
     int far_a1 = a1;
     int near_a2 = a2;
@@ -41,22 +47,20 @@ Java_meteor_asu_edu_speedytiltshift_SpeedyTiltShift_nativeTiltShift(JNIEnv *env,
     float sigma_near = s_near;
 
     float sigma;
-    int radius;
-    int size;
-    int conv;
-    int p;
-    double BB;
-    double GG;
-    double RR;
-    double AA;
-    int color;
+    int radius, size, conv, color;
+    double BB, GG, RR, AA;
     int sigma_seven1=0;
     int sigma_seven2=0;
 
+    /**Dynamic computation of sigma value for far, near, a1, a2, and a3 regions
+    *Pixels for when sigma is less than 0.7 are left alone
+    */
 
-    //Dynamic computation of sigma value for far, near, a1, a2, and a3 regions
-    //Pixels for when sigma is less than 0.7 are left alone
+    /**This for-loop is responsible for the kernel to traverse horizontally
+    *And is also used to compute Sigma values and the Kernel vectors which remain the same for each iteration of this loop
+    */
     for (int y=0; y<height; y++){
+        //Computing sigma_far
         if(y < far_a0){
             sigma = sigma_far;
             radius = (int)ceil(3*sigma);
@@ -65,6 +69,7 @@ Java_meteor_asu_edu_speedytiltshift_SpeedyTiltShift_nativeTiltShift(JNIEnv *env,
                 continue;
             }
         }
+        ///Computing sigma between a0 and a1
         else if( (y < far_a1) && (y >= far_a0) ){
             sigma =  (sigma_far * (far_a1 - y)) / (far_a1-far_a0);
             radius = (int)ceil(3*sigma);
@@ -74,9 +79,11 @@ Java_meteor_asu_edu_speedytiltshift_SpeedyTiltShift_nativeTiltShift(JNIEnv *env,
                 continue;
             }
         }
+        ///Skipping the region between a1 and a2 (Focused region)
         else if( ( y >= far_a1) && (y<=near_a2) ){
             continue;
         }
+        ///Computing sigma between a2 and a3
         else if( (y > near_a2) && (y <= near_a3) ){
             sigma = (sigma_near * (y - near_a2)) / (near_a3-near_a2);
             radius = (int)ceil(3*sigma);
@@ -86,6 +93,7 @@ Java_meteor_asu_edu_speedytiltshift_SpeedyTiltShift_nativeTiltShift(JNIEnv *env,
                 continue;
             }
         }
+        ///Computing sigma_near
         else{
             sigma = sigma_near;
             radius = (int)ceil(3*sigma);
@@ -95,34 +103,29 @@ Java_meteor_asu_edu_speedytiltshift_SpeedyTiltShift_nativeTiltShift(JNIEnv *env,
             }
         }
 
+        ///Computing the Kernel Vector (used interchangeably for horizontal and vertical operations)
         for(int j=0; j<size; j++) {
             k[j] = (exp(-(((j - radius) * (j - radius))) / (2 * (sigma * sigma)))) / pow((2 * M_PI * (sigma * sigma)), 0.5);
             //__android_log_print(ANDROID_LOG_INFO, "Kernel K", "K[j]= %f", k[j]);
         }
 
-
+        ///This for-loop is responsible for the kernel to traverse vertically
         for (int x = 0; x<width; x++){
-            //Convolution Algorithm
-            p=0;
-            BB=0;
-            GG=0;
-            RR=0;
-            AA=0;
+            ///Re-initializing the A, R, G, B components of each pixel for exclusive usage while kernel traverses vertically
+            BB=0, GG=0, RR=0, AA=0;
             //Log.d("Sigma","value:"+sigma);
 
-            //Evaluating each entry of the Kernel Matrix
-            //Computation of convolution is disabled for the region of the image that is in Focus
-
-            //Vector-1
+            ///Convolving the kernel vector horizontally
             for(int j=0; j<size; j++){
                 {
+                    ///Convolution is disabled for the region of the image that is in Focus, by retianing the original pixel values
                     if ((x + (j - radius)) < 0 || (x + (j - radius)) >= width){
-                        BB = BB;
-                        GG = GG;
-                        RR = RR;
+                        BB = BB, GG = GG, RR = RR;
                     }
                     else {
+                        ///Convolution of the neighboring pixels
                         conv = pixels[((y) * width) + (x + (j - radius))];
+                        ///Computing the convolved values of A, R, G, B
                         BB = (BB + (conv & 0xff) * k[j]);
                         GG = (GG + (((conv >> 8) & 0xff) * k[j]));
                         RR = (RR + (((conv >> 16) & 0xff) * k[j]));
@@ -130,23 +133,22 @@ Java_meteor_asu_edu_speedytiltshift_SpeedyTiltShift_nativeTiltShift(JNIEnv *env,
                     }
                 }
             }
+            ///Computing the resulting convolved pixel value, later flushed into the output Bitmap image
             color = ( (int)AA & 0xff) << 24 | ( ((int)RR) & 0xff) << 16 | ( ((int)GG) & 0xff) << 8 | ( ((int)BB) & 0xff);
             pixels[y*width+x] = color;
 
-            //Vector-2
-            BB=0;
-            GG=0;
-            RR=0;
-            AA=0;
+            ///Re-initializing the A, R, G, B components of each pixel for exclusive usage while kernel traverses vertically
+            ///Convolving the kernel vector vertically
+            BB=0, GG=0, RR=0, AA=0;
             for(int i=0; i<size; i++){
                 {
                     if ((y + (i - radius)) < 0 || (y + (i - radius)) >= height){
-                        BB = BB;
-                        GG = GG;
-                        RR = RR;
+                        BB = BB, GG = GG, RR = RR;
                     }
                     else {
+                        ///Convolution of the neighboring pixels
                         conv = pixels[((y+(i - radius)) * width) + (x)];
+                        ///Computing the convolved values of A, R, G, B
                         BB = (BB + (conv & 0xff) * k[i]);
                         GG = (GG + (((conv >> 8) & 0xff) * k[i]));
                         RR = (RR + (((conv >> 16) & 0xff) * k[i]));
@@ -154,6 +156,7 @@ Java_meteor_asu_edu_speedytiltshift_SpeedyTiltShift_nativeTiltShift(JNIEnv *env,
                     }
                 }
             }
+            ///Computing the resulting convolved pixel value, later flushed into the output Bitmap image
             color = ( (int)AA & 0xff) << 24 | ( ((int)RR) & 0xff) << 16 | ( ((int)GG) & 0xff) << 8 | ( ((int)BB) & 0xff);
             pixels[y*width+x] = color;
             //__android_log_print(ANDROID_LOG_INFO, "Pixels", "pixels[]= %d", pixels[y*width+x]);
@@ -161,6 +164,7 @@ Java_meteor_asu_edu_speedytiltshift_SpeedyTiltShift_nativeTiltShift(JNIEnv *env,
 
     }
 
+    ///Returning the convolved pixels back to the Java caller function
     env->SetIntArrayRegion(pixelsOut, 0, length, pixels);
     env->ReleaseIntArrayElements(pixels_, pixels, 0);
     return pixelsOut;
@@ -168,80 +172,17 @@ Java_meteor_asu_edu_speedytiltshift_SpeedyTiltShift_nativeTiltShift(JNIEnv *env,
 
 JNIEXPORT jintArray JNICALL
 Java_meteor_asu_edu_speedytiltshift_SpeedyTiltShift_nativeTiltShiftNeon(JNIEnv *env,
-                                                                    jobject This,
-                                                                    jintArray pixels_,
-                                                                    jint width, jint height,
-                                                                    jint a0, jint a1, jint a2, jint a3, jfloat s_far, jfloat s_near
+                                                                        jobject This,
+                                                                        jintArray pixels_,
+                                                                        jint width, jint height,
+                                                                        jint a0, jint a1, jint a2, jint a3, jfloat s_far, jfloat s_near
 ) {
-    int32x4_t sum_vec = vdupq_n_s32(0);
     jint *pixels = env->GetIntArrayElements(pixels_, NULL);
     long length = env->GetArrayLength(pixels_);
-    jintArray pixelsOut = env->NewIntArray(length);
+    //jintArray pixelsOut = env->NewIntArray(length);
 
-    //__android_log_print(ANDROID_LOG_INFO, "TAG_ROBLKW", "width*height	=	%d", width*height);
-    //__android_log_print(ANDROID_LOG_INFO, "TAG_ROBLKW", "length	=	%d", length);
-
-    uint8_t arrayIn[10];
-    uint8_t arrayOut[10];
-    for(int i=0; i<10; i++){
-        arrayOut[i]=0;
-        arrayIn[i]=i%10;
-        __android_log_print(ANDROID_LOG_INFO, "TAG_ROBLKW", "arrayOut[%d]	=	%d", i, arrayOut[i]);
-        __android_log_print(ANDROID_LOG_INFO, "TAG_ROBLKW", "arrayIn[%d]	=	%d", i, arrayIn[i]);
-    }
-
-    uint8_t * arrayInPtr = (uint8_t *) arrayIn;
-    uint8_t * arrayOutPtr = (uint8_t *) arrayOut;
-    uint8x8_t r, g, b;
-    uint8x8x4_t deinterleaved;
-
-    deinterleaved = vld4_u8(arrayInPtr);
-    //for (int i=0; i<5; i++) {
-
-        r = deinterleaved.val[1];
-        __android_log_print(ANDROID_LOG_INFO, "TAG_ROBLKW", "R[0]	=	%d, R[0]	=	%d, R[0]	=	%d, R[0]	=	%d, R[0]	=	%d", vget_lane_u8(r, 0), vget_lane_u8(r, 1), vget_lane_u8(r, 2),vget_lane_u8(r, 3), vget_lane_u8(r, 4));
-    //}
-
-/*
-    uint8_t	arrayIn[1000];
-    uint8_t	arrayOut[1000];
-    for(int i=0; i<1000; i++){
-        arrayOut[i]=0;
-    }
-    int ilength	=	1000;
-
-    for	(int y=0;	y<ilength;	y++)	{
-        arrayIn[y]=	y%128; } //
-
-    for	(int y=0;	y<ilength;	y++) {
-        __android_log_print(ANDROID_LOG_INFO, "TAG_ROBLKW", "arrayIn[%d]	=	%d", y, arrayIn[y]);
-    }
-    uint8_t	*	arrayInPtr =	(uint8_t	*)arrayIn;
-    uint8_t	*	arrayOutPtr =	(uint8_t	*)arrayOut;
-    uint8x16_t	G;
-    for	(int i=0;i<3;i++){
-        uint8x16x4_t	vecs =	vld4q_u8(arrayInPtr);
-        uint8x16_t	R	=	vecs.val[1];
-        //__android_log_print(ANDROID_LOG_INFO,	"TAG_ROBLKW",	"R[0]	=	%d, R[1]	=	%d , R[2]	=	%d, R[4]	=	%d",	vgetq_lane_u8(R,0), vgetq_lane_u8(R,1), vgetq_lane_u8(R,2), vgetq_lane_u8(R,3));
-        	G	=	vecs.val[2];
-        //__android_log_print(ANDROID_LOG_INFO,	"TAG_ROBLKW",	"G[0]	=	%d",	vgetq_lane_u8(G,0));
-        //uint8x16_t	B	=	vecs.val[3];
-        uint8x16_t	result	=	vaddq_u8(R,G);
-
-        vst1q_u8(arrayOutPtr+16*i,result);
-        //__android_log_print(ANDROID_LOG_INFO,	"TAG_ROBLKW",	"arrayOut[0]	=	%d",	arrayOut[0]); __android_log_print(ANDROID_LOG_INFO,	"TAG_ROBLKW",	"arrayOut[1]	=	%d",	arrayOut[1]); __android_log_print(ANDROID_LOG_INFO,	"TAG_ROBLKW",	"arrayOut[2]	=	%d",	arrayOut[2]); __android_log_print(ANDROID_LOG_INFO,	"TAG_ROBLKW",	"arrayOut[3]	=	%d",	arrayOut[3]); __android_log_print(ANDROID_LOG_INFO,	"TAG_ROBLKW",	"arrayOut[4]	=	%d",	arrayOut[4]); __android_log_print(ANDROID_LOG_INFO,	"TAG_ROBLKW",	"arrayOut[5]	=	%d",	arrayOut[5]); __android_log_print(ANDROID_LOG_INFO,	"TAG_ROBLKW",	"arrayOut[14]	=	%d",	arrayOut[14]); __android_log_print(ANDROID_LOG_INFO,	"TAG_ROBLKW",	"arrayOut[15]	=	%d",	arrayOut[15]); __android_log_print(ANDROID_LOG_INFO,	"TAG_ROBLKW",	"arrayOut[16]	=	%d",	arrayOut[16]);
-        arrayInPtr +=64;
-    }
-
-    arrayOutPtr = 0;
-    for(int i=0; i<1000; i++){
-        __android_log_print(ANDROID_LOG_INFO,	"TAG_ROBLKW",	"arrayOut[%d]	=	%d",i,	arrayOut[i]);
-    }
-
-*/
-/*
-    //Defining a kennel matrix, large enough to support up to a sigma value of 6
-    double k[70];
+    __android_log_print(ANDROID_LOG_INFO, "TAG_ROBLKW", "check1");
+    //__android_log_print(ANDROID_LOG_INFO, "TAG_ROBLKW", "length  =  %d", length);
 
     int far_a0 = a0;
     int far_a1 = a1;
@@ -250,60 +191,82 @@ Java_meteor_asu_edu_speedytiltshift_SpeedyTiltShift_nativeTiltShiftNeon(JNIEnv *
     float sigma_far = s_far;
     float sigma_near = s_near;
 
-    //Pixel Arrays
-    uint8x16x4_t pixels_vector;
-    uint8x16_t R;
-    uint8x16_t G;
-    uint8x16_t B;
-    uint8_t * pixelsIn = (uint8_t *) pixels;
 
     float sigma;
     int radius;
     int size;
-    int conv;
+    float max_sigma;
 
+    if(sigma_far >= sigma_near){
+        max_sigma = sigma_far;
+    }
+    else{
+        max_sigma =sigma_near;
+    }
+
+    int max_radius=(int) ceil (3*max_sigma);
+    int max_size=(2*max_radius)+1;
+    int max_size_chk=max_size + 4-max_size % 4;
+    if(max_size < 16){
+        max_size_chk=16;
+    }
+    uint16_t k[max_size+(4-max_size % 4)];
+    double AA;
     int color;
-    int sigma_seven1=0;
-    int sigma_seven2=0;
 
-
-/*
     //pixels[] with zeroes padded
-    int new_height = (height+size);
-    int new_width = (width+size);
+    int new_height = (height+max_size-1);
+    int new_width = (width+max_size-1);
     int new_pixels[new_height*new_width];
-
     int new_length = new_width*new_height;
     jintArray pixelsOut = env->NewIntArray(new_length);
 
+    __android_log_print(ANDROID_LOG_INFO, "TAG_ROBLKW", "new_height    =  %d", new_height);
+    __android_log_print(ANDROID_LOG_INFO, "TAG_ROBLKW", "new_width =  %d", new_width);
+    __android_log_print(ANDROID_LOG_INFO, "TAG_ROBLKW", "new_length    =  %d", new_length);
+
+    int count=0;
+
     for(int i=0; i<new_height; i++){
         for(int j=0; j<new_width; j++){
-            if(j>=0 && j<new_width){
-                new_pixels[i*(new_width+j)] = 0;
+            if(j>=0 && j<new_width && i>=0 && i<max_radius){
+                new_pixels[(i*new_width)+j] = 0;
             }
 
-            if(j>=0 && i<size/2 && i>=size/2 && i<(height+size/2)){
-                new_pixels[i*(new_width+j)] = 0;
+            if(j>=0 && j<max_radius && i>=max_radius && i<(height+max_radius)){
+                new_pixels[(i*new_width)+j] = 0;
             }
 
-            if(j>=(width+size/2) && j<new_width && i>=size/2 && i<(height+size/2)){
-                new_pixels[i*(new_width+j)] = 0;
+            if(j>=(width+max_radius) && j<new_width && i>=max_radius && i<(height+max_radius)){
+                new_pixels[(i*new_width)+j] = 0;
             }
 
-            if(i>=(height+size/2) && i<=new_height && j>=0 && j<new_width){
-                new_pixels[i*(new_width+j)] = 0;
+            if(i>=(height+max_radius) && i<new_height && j>=0 && j<new_width){
+                new_pixels[(i*new_width)+j] = 0;
             }
 
-            else{
-                new_pixels[i*(new_width+j)] = pixels[(i-size/2)*width + (j-size/2)];
+            if( i>=max_radius && i<(height+max_radius) && j>=max_radius && j<(width+max_radius)){
+                new_pixels[(i*new_width)+j] = pixels[(i-max_radius)*width + (j-max_radius)];
             }
         }
 
     }
 
-/*
-    //Dynamic computation of sigma value for far, near, a1, a2, and a3 regions
-    //Pixels for when sigma is less than 0.7 are left alone
+    //uint8_t * arrayInPtr1 = (uint8_t *) new_pixels;
+    uint8_t arrayInPtr[4*new_length];
+
+    for(int i=0; i<new_length; i++){
+        arrayInPtr[4*i]=(uint8_t)(new_pixels[i] % 256 );
+        arrayInPtr[4*i+1]=(uint8_t)(new_pixels[i] /256 % 256 );
+        arrayInPtr[4*i+2]=(uint8_t)(new_pixels[i] /256 /256 % 256 );
+        arrayInPtr[4*i+3]=(uint8_t)(new_pixels[i] /256 /256 /256 % 256 );
+    }
+    uint8_t * arrayInPtr1;
+    arrayInPtr1 = arrayInPtr;
+    //__android_log_print(ANDROID_LOG_INFO, "Kernel K", "pointer: %d", arrayInPtr1);
+
+    uint16_t * kernPtr = (uint16_t *) k;
+
     for (int y=0; y<height; y++){
         if(y < far_a0){
             sigma = sigma_far;
@@ -318,7 +281,6 @@ Java_meteor_asu_edu_speedytiltshift_SpeedyTiltShift_nativeTiltShiftNeon(JNIEnv *
             radius = (int)ceil(3*sigma);
             size = (2*radius) + 1;
             if(sigma < 0.7f){
-                sigma_seven1=sigma_seven1+1;
                 continue;
             }
         }
@@ -330,7 +292,6 @@ Java_meteor_asu_edu_speedytiltshift_SpeedyTiltShift_nativeTiltShiftNeon(JNIEnv *
             radius = (int)ceil(3*sigma);
             size = (2*radius) + 1;
             if(sigma < 0.7f){
-                sigma_seven2=sigma_seven2+1;
                 continue;
             }
         }
@@ -342,38 +303,201 @@ Java_meteor_asu_edu_speedytiltshift_SpeedyTiltShift_nativeTiltShiftNeon(JNIEnv *
                 continue;
             }
         }
+        arrayInPtr1 = &arrayInPtr[4*(max_radius+y)*new_width+ max_radius-radius] ;
 
+        int twotothe8 = pow(2, 8);
         for(int j=0; j<size; j++) {
-            k[j] = (exp(-(((j - radius) * (j - radius))) / (2 * (sigma * sigma)))) / pow((2 * M_PI * (sigma * sigma)), 0.5);
+
+            k[j] = ((exp(-(((j - radius) * (j - radius))) / (2 * (sigma * sigma)))) / pow((2 * M_PI * (sigma * sigma)), 0.5))*twotothe8;
             //__android_log_print(ANDROID_LOG_INFO, "Kernel K", "K[j]= %f", k[j]);
         }
-        uint64_t * kIn = (uint64_t *) k;
+        //__android_log_print(ANDROID_LOG_INFO, "Kernel K", "check2");
+        for(int j=size; j<max_size_chk; j++){
+            k[j]=0;
+        }
 
-        for (int x = 0; x<width; x+16){
+
+
+        for (int x = 0; x<width; x++){
             //Convolution Algorithm
-            B=0;
-            G=0;
-            R=0;
-            //Log.d("Sigma","value:"+sigma);
-
-            pixels_vector = vld4q_u8(pixelsIn);
-            R = pixels_vector.val[1];
-            G = pixels_vector.val[2];
-            B = pixels_vector.val[3];
+            AA=0;
+            arrayInPtr1=arrayInPtr1+ 4*x;
             //Evaluating each entry of the Kernel Matrix
             //Computation of convolution is disabled for the region of the image that is in Focus
 
             //Vector-1
+
+            uint16x8_t out_R ;//= vdupq_n_u16(0);
+            uint16x8_t out_G;//= vdupq_n_u16(0);
+            uint16x8_t out_B;//= vdupq_n_u16(0);
+            int res_R =0, res_G=0, res_B=0;
+
+            for(int i=0; i<size; i=i+16){
+                uint16x8_t kern1 = vld1q_u16(kernPtr+i);
+                uint16x8_t kern2 = vld1q_u16(kernPtr+4+i);
+               // float32x4_t kern3 = vld1q_f32(kernPtr+8+i);
+                //float32x4_t kern4 = vld1q_f32(kernPtr+12+i);
+
+                uint8x16x4_t pix = vld4q_u8(arrayInPtr1+i);
+                int z = arrayInPtr1[(max_radius+y)*new_width+ max_radius+x];
+                //for(int i=0; i<4*new_length; i++){
+                // __android_log_print(ANDROID_LOG_INFO, "arrayinptr[%d]", "arrayinptr[%d]\tptr= %d", i, arrayInPtr[i]);
+                // }//
+                uint8x16_t R  =  pix.val[1];
+                uint8x8_t  R_low = vget_low_u8(R);
+                uint8x8_t  R_high = vget_high_u8(R);
+
+                uint16x8_t R1  = vmovl_u8(R_low);
+                uint16x8_t R2  = vmovl_u8(R_high);
+
+               // uint16x4_t R11  = vget_low_u16(R1);
+               // uint16x4_t R12  = vget_high_u16(R1);
+               // uint16x4_t R21  = vget_low_u16(R2);
+               // uint16x4_t R22  = vget_high_u16(R2);
+
+               // uint32x4_t R111  = vmovl_u16(R11);
+                //uint32x4_t R121  = vmovl_u16(R12);
+               // uint32x4_t R212  = vmovl_u16(R21);
+               // uint32x4_t R222  = vmovl_u16(R22);
+
+
+
+                //Green
+                uint8x16_t G  =  pix.val[2];
+                uint8x8_t  G_low = vget_low_u8(G);
+                uint8x8_t  G_high = vget_high_u8(G);
+
+                uint16x8_t G1  = vmovl_u8(G_low);
+                uint16x8_t G2  = vmovl_u8(G_high);
+
+                //uint16x4_t G11  = vget_low_u16(G1);
+                //uint16x4_t G12  = vget_high_u16(G1);
+               // uint16x4_t G21  = vget_low_u16(G2);
+                //uint16x4_t G22  = vget_high_u16(G2);
+
+                //uint32x4_t G111  = vmovl_u16(G11);
+                //uint32x4_t G121  = vmovl_u16(G12);
+                //uint32x4_t G212  = vmovl_u16(G21);
+                //uint32x4_t G222  = vmovl_u16(G22);
+
+
+
+                //Blue
+                uint8x16_t B  =  pix.val[3];
+                uint8x8_t  B_low = vget_low_u8(B);
+                uint8x8_t  B_high = vget_high_u8(B);
+
+                uint16x8_t B1  = vmovl_u8(B_low);
+                uint16x8_t B2  = vmovl_u8(B_high);
+
+                //uint16x4_t B11  = vget_low_u16(B1);
+                //uint16x4_t B12  = vget_high_u16(B1);
+               // uint16x4_t B21  = vget_low_u16(B2);
+                //uint16x4_t B22  = vget_high_u16(B2);
+
+               // uint32x4_t B111  = vmovl_u16(B11);
+               // uint32x4_t B121  = vmovl_u16(B12);
+                //uint32x4_t B212  = vmovl_u16(B21);
+               // uint32x4_t B222  = vmovl_u16(B22);
+
+
+
+                vmlaq_u16(out_R,kern1,R1);
+                vmlaq_u16(out_G,G1,kern1);
+                vmlaq_u16(out_B,B1,kern1);
+
+                res_R+=vgetq_lane_u16(out_R,0);
+                res_G+=vgetq_lane_u16(out_G,0);
+                res_B+=vgetq_lane_u16(out_B,0);
+
+                res_R+=vgetq_lane_u16(out_R,1);
+                res_G+=vgetq_lane_u16(out_G,1);
+                res_B+=vgetq_lane_u16(out_B,1);
+
+                res_R+=vgetq_lane_u16(out_R,2);
+                res_G+=vgetq_lane_u16(out_G,2);
+                res_B+=vgetq_lane_u16(out_B,2);
+
+                res_R+=vgetq_lane_u16(out_R,3);
+                res_G+=vgetq_lane_u16(out_G,3);
+                res_B+=vgetq_lane_u16(out_B,3);
+
+                vmlaq_u16(out_R,R2,kern2);
+                vmlaq_u16(out_G,G2,kern2);
+                vmlaq_u16(out_B,B2,kern2);
+
+                //res_R+=vgetq_lane_f32(out_R,0);
+                //res_G+=vgetq_lane_f32(out_G,0);
+               // res_B+=vgetq_lane_f32(out_B,0);
+
+               // res_R+=vgetq_lane_f32(out_R,1);
+                //res_G+=vgetq_lane_f32(out_G,1);
+               // res_B+=vgetq_lane_f32(out_B,1);
+
+               // res_R+=vgetq_lane_f32(out_R,2);
+                //res_G+=vgetq_lane_f32(out_G,2);
+               // res_B+=vgetq_lane_f32(out_B,2);
+
+                //res_R+=vgetq_lane_f32(out_R,3);
+                //res_G+=vgetq_lane_f32(out_G,3);
+                //res_B+=vgetq_lane_f32(out_B,3);
+
+               // vmlaq_f32(out_R,R212,kern3);
+               // vmlaq_f32(out_G,G212,kern3);
+                //vmlaq_f32(out_B,B212,kern3);
+
+                res_R+=vgetq_lane_u16(out_R,0);
+                res_G+=vgetq_lane_u16(out_G,0);
+                res_B+=vgetq_lane_u16(out_B,0);
+
+                res_R+=vgetq_lane_u16(out_R,1);
+                res_G+=vgetq_lane_u16(out_G,1);
+                res_B+=vgetq_lane_u16(out_B,1);
+
+                res_R+=vgetq_lane_u16(out_R,2);
+                res_G+=vgetq_lane_u16(out_G,2);
+                res_B+=vgetq_lane_u16(out_B,2);
+
+                res_R+=vgetq_lane_u16(out_R,3);
+                res_G+=vgetq_lane_u16(out_G,3);
+                res_B+=vgetq_lane_u16(out_B,3);
+
+               // out_R= vmulq_n_f64(kern4,R222);
+                //__android_log_print(ANDROID_LOG_INFO, "Kernel K", "res_R=%f",vgetq_lane_f32(vmulq_f32(kern4,R222),0));
+                //vmlaq_f32(out_R,R222,kern4);
+               // vmlaq_f32(out_G,G222,kern4);
+               // __android_log_print(ANDROID_LOG_INFO, "Kernel K", "mulG=%f",vgetq_lane_f32(vmulq_f32(kern4,R222),0));
+              //  vmlaq_f32(out_B,B222,kern4);
+
+                //res_R+=vgetq_lane_f32(out_R,0);
+                //res_G+=vgetq_lane_f32(out_G,0);
+                //res_B+=vgetq_lane_f32(out_B,0);
+
+               /* res_R+=vgetq_lane_f32(out_R,1);
+                res_G+=vgetq_lane_f32(out_G,1);
+                res_B+=vgetq_lane_f32(out_B,1);
+
+                res_R+=vgetq_lane_f32(out_R,2);
+                res_G+=vgetq_lane_f32(out_G,2);
+                res_B+=vgetq_lane_f32(out_B,2);
+
+                res_R+=vgetq_lane_f32(out_R,3);
+                res_G+=vgetq_lane_f32(out_G,3);
+                res_B+=vgetq_lane_f32(out_B,3);
+                __android_log_print(ANDROID_LOG_INFO, "Kernel K", "res_R=%d",res_R);
+                */
+            }
+
+            //__android_log_print(ANDROID_LOG_INFO, "Kernel K", "check5");
+            /*
             for(int j=0; j<size; j++){
                 {
                     if ((x + (j - radius)) < 0 || (x + (j - radius)) >= width){
-                        B = B;
-                        G = G;
-                        R = R;
+                        BB = BB;
+                        GG = GG;
+                        RR = RR;
                     }
                     else {
-                        kIn = kIn+25;
-                        vmlaq_u8(R, (uint8x16_t) kIn, );
                         conv = pixels[((y) * width) + (x + (j - radius))];
                         BB = (BB + (conv & 0xff) * k[j]);
                         GG = (GG + (((conv >> 8) & 0xff) * k[j]));
@@ -382,10 +506,17 @@ Java_meteor_asu_edu_speedytiltshift_SpeedyTiltShift_nativeTiltShiftNeon(JNIEnv *
                     }
                 }
             }
-            color = ( (int)AA & 0xff) << 24 | ( ((int)RR) & 0xff) << 16 | ( ((int)GG) & 0xff) << 8 | ( ((int)BB) & 0xff);
+            */
+            AA = 0xff;
+            res_R= res_R/twotothe8;
+            res_G= res_R/twotothe8;
+            res_B= res_R/twotothe8;
+            color = ( (int)AA & 0xff) << 24 | ( ((int)res_R) & 0xff) << 16 | ( ((int)res_G) & 0xff) << 8 | ( ((int)res_B) & 0xff);
             pixels[y*width+x] = color;
+            //
 
             //Vector-2
+            /*
             BB=0;
             GG=0;
             RR=0;
@@ -407,14 +538,19 @@ Java_meteor_asu_edu_speedytiltshift_SpeedyTiltShift_nativeTiltShiftNeon(JNIEnv *
                 }
             }
             color = ( (int)AA & 0xff) << 24 | ( ((int)RR) & 0xff) << 16 | ( ((int)GG) & 0xff) << 8 | ( ((int)BB) & 0xff);
-            pixels[y*width+x] = color;
+            */
+            //pixels[y*width+x] = color;
             //__android_log_print(ANDROID_LOG_INFO, "Pixels", "pixels[]= %d", pixels[y*width+x]);
         }
 
+        //__android_log_print(ANDROID_LOG_INFO, "Kernel K", "check7");
     }
-*/
+
+    //__android_log_print(ANDROID_LOG_INFO, "Kernel K", "check8");
+
     env->SetIntArrayRegion(pixelsOut, 0, length, pixels);
     env->ReleaseIntArrayElements(pixels_, pixels, 0);
     return pixelsOut;
+
 }
 }
