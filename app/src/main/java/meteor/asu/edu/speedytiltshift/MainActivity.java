@@ -22,6 +22,8 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Objects;
 
 public class MainActivity extends AppCompatActivity {
@@ -41,6 +43,11 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         imageView = (ImageView) findViewById(R.id.imageView);
+
+        //Disabling ORIGINAL
+        button6 = (Button) findViewById(R.id.button);
+        button6.setAlpha(0.5f);
+        button6.setClickable(false);
 
         //Disabling TILT SHIFT (JAVA)
         button3 = (Button) findViewById(R.id.button3);
@@ -77,12 +84,12 @@ public class MainActivity extends AppCompatActivity {
 
 
                 //Log.d("INPUT_FILE_PATH", "path= "+fname);
-                Bitmap scaledBitmap = Bitmap.createScaledBitmap(selectedImage,590,470,false);
+                Bitmap scaledBitmap = Bitmap.createScaledBitmap(selectedImage,650,650,false);
 
                 ///Following code assigns the image obtained from Gallery into "bmpIn"
                 ///Comment the following lines, if using the below segment to load the image from /drawable
                 ///Configuration of the following Bitmap object bmpIn is retained to be ARGB_8888
-                bmpIn = scaledBitmap;
+                bmpIn = selectedImage;
                 imageView = (ImageView) findViewById(R.id.imageView);
                 Log.d("BMPCONFIG", "bmpin.config: "+bmpIn.getConfig());
 
@@ -162,8 +169,9 @@ public class MainActivity extends AppCompatActivity {
 
     public void saveimage(View view) throws IOException {
         Log.d("ExternalStorageWritable", ""+isExternalStorageWritable());
-        getAlbumStorageDir(this, "TiltShift");
+        //getAlbumStorageDir("TiltShift");
         //Disabling SAVE
+        createOutputImage(bmpOut);
         button6 = (Button) findViewById(R.id.button6);
         button6.setAlpha(0.5f);
         button6.setClickable(false);
@@ -177,22 +185,29 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
-    public File getAlbumStorageDir(Context context, String albumName) throws IOException {
-        // Get the directory for the app's private pictures directory.
-        File file = new File(context.getExternalFilesDir(
-                Environment.DIRECTORY_PICTURES), albumName);
-        String fname = "Blurred_Image" + ".jpg";
-        File fileWithName = new File(file, fname);
-        FileOutputStream fo = new FileOutputStream(fileWithName);
-        bmpOut.compress(Bitmap.CompressFormat.JPEG, 90, fo);
-        fo.flush();
-        fo.close();
-        if (!file.mkdirs()) {
-            Log.e("LOG_TAG", "Directory not created");
+    private void createOutputImage(Bitmap image) throws IOException {
+        File imageOut = getOutputImage();
+        if (imageOut == null) {
+            return;
         }
-        Log.d("getAlbumStorageDir", "path = "+file.getAbsolutePath());
-        return file;
+        FileOutputStream fo = new FileOutputStream(imageOut);
+        image.compress(Bitmap.CompressFormat.PNG, 90, fo);
+        fo.close();
+        
+    }
 
+    private  File getOutputImage(){
+        File outImageDir = new File(Environment.getExternalStorageDirectory()+ "/Android/data/"+ getApplicationContext().getPackageName()+ "/Files");
+        if (! outImageDir.exists()){
+            if (! outImageDir.mkdirs()){
+                return null;
+            }
+        }
+        String timeStamp = new SimpleDateFormat("ddMMyyyy_HHmm").format(new Date());
+        File tempOut;
+        String outImageName="Blur"+ timeStamp +".jpg";
+        tempOut = new File(outImageDir.getPath() + File.separator + outImageName);
+        return tempOut;
     }
 
     //This function is invoked upon the button click of TILT SHIFT (JAVA) in the MainActivity
@@ -217,7 +232,7 @@ public class MainActivity extends AppCompatActivity {
         long current_time = System.currentTimeMillis();
 
         //Calling tiltshift_java
-        bmpOut = SpeedyTiltShift.tiltshift_java(bmpIn, 100, 150, 280, 370, 10.0f, 10.0f);
+        bmpOut = SpeedyTiltShift.tiltshift_java(bmpIn, 100, 150, 280, 370, 5.0f, 5.0f);
 
         //Computing elapsed time
         long elapsed_time = (System.currentTimeMillis() - current_time);
@@ -251,7 +266,7 @@ public class MainActivity extends AppCompatActivity {
         long current_time = System.currentTimeMillis();
 
         //Calling tiltshift_java
-        bmpOut = SpeedyTiltShift.tiltshift_cpp(bmpIn, 100, 150, 280, 370, 7.0f, 7.0f);
+        bmpOut = SpeedyTiltShift.tiltshift_cpp(bmpIn, 100, 150, 280, 370, 5.0f, 5.0f);
 
         //Computing elapsed time
         long elapsed_time = (System.currentTimeMillis() - current_time);
@@ -284,7 +299,7 @@ public class MainActivity extends AppCompatActivity {
         long current_time = System.currentTimeMillis();
 
         //Calling tiltshift_neon
-        bmpOut = SpeedyTiltShift.tiltshift_neon(bmpIn, 100, 150, 280, 370, 3.0f, 3.0f);
+        bmpOut = SpeedyTiltShift.tiltshift_neon(bmpIn, 100, 150, 280, 370, 5.0f, 5.0f);
 
         //Computing elapsed time
         long elapsed_time = (System.currentTimeMillis() - current_time);

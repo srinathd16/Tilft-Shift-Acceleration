@@ -37,9 +37,8 @@ public class SpeedyTiltShift {
      *                                  a0-a3         - intermediate boundaries that define the gradient in blur between the absolute boundaries
      * This method,
      *              -Initially creates a Bitmap object "out" with the same configuration as that of the input image, to be outputted as the final blurred image
-     *              -Pixels from the input image are obtained using the getPixels function (a function Bitmap class)
-     *               followed by convolving the pixels vertically
-     *              -A kernel vector is then created based on varying values of sigma. Also alongside, convolved value of each pixel is computed
+     *              -Pixels from the input image are obtained using the getPixels function (a function of Bitmap class)
+     *              -A kernel vector is then created based on varying values of sigma. Also alongside, convolution of each pixel is computed
      *              -All convolved pixels are collated into an array and is flushed into the Bitmap object "out" which is indeed the blurred image
      */
     public static Bitmap tiltshift_java(Bitmap in, int a0, int a1, int a2, int a3, float s_far, float s_near){
@@ -80,25 +79,37 @@ public class SpeedyTiltShift {
         /** sigma          - float variable to hold the resultant value of sigma (computed per row)
          * radius          - integer variable representing the radius of the kernel
          * size            - integer value representing 2*radius+1
-         * convolutedPixel -
+         * pixelForConvolution - integer value to hold the pixel upon which convolution will be implemented
+         * AA/RR/GG/BB     - float values that hold the ARGB channel values of pixelForConvolution
+         * convolutedPixel - integer value to hold the value of the convoluted pixel
          * */
         float sigma;
         int radius;
         int size;
-        int conv;
+        int pixelForConvolution;
         float BB;
         float GG;
         float RR;
         float AA;
-        int color;
+        int convolutedPixel;
 
+        /**Creating an object of Math class, later to be used for its "ceil" and "exp" functions
+         * */
         Math math = null;
 
         /**result - Declaring an array to store the (convoluted) pixels of the output image
+         *Assigning it to "pixels", to copy all of its content
+         *  Purpose: Easier to retain part of the image which should be in-focus(no blur)
          */
         int[] result;
         result = pixels;
 
+        /**This for-loop marks the start of the convolution algorithm - involving Horizontal Kernel operations
+         * Variable "y" will ensure vertical traversal through the "pixels" array (input image)
+         * Sigma value is dynamically computed for far, near, a1, a2, and a3 regions - all of which are dependent on the vertical axis of the input image
+         * Radius and size of the kernel are computed
+         * Regions of the input image between a1 and a2 are kept in-focus
+         * */
         //Dynamic computation of sigma value for far, near, a1, a2, and a3 regions
         //Pixels for when sigma is less than 0.7 are left alone
         for (int y=0; y<height; y++){
@@ -138,78 +149,184 @@ public class SpeedyTiltShift {
                 }
             }
 
+            /**This for-loop computes the (horizontal) kernel vector
+             * */
             for(int j=0; j<size; j++) {
                 kernelVector[j] = (float) ((math.exp(-(((j - radius) * (j - radius))) / (2 * (sigma * sigma)))) / Math.pow((2 * Math.PI * (sigma * sigma)), 0.5));
             }
 
-
-                    for (int x = 0; x<width; x++){
+            /**This for-loop allows traversal of the input image along its width
+             * ARGB values of the "result" pixel are initialized to zero
+             * */
+            for (int x = 0; x<width; x++){
                 //Convolution Algorithm
                 BB=0;
                 GG=0;
                 RR=0;
                 AA=0;
-                //Log.d("Sigma","value:"+sigma);
 
-                //Evaluating each entry of the Kernel Matrix
-                //Computation of convolution is disabled for the region of the image that is in Focus
-
-                //Vector-1
+                /**Actual convolution of pixelForConvolution happens in this for-loop
+                 * Logic under "if" ensures that pixels are unaltered beyond the boundaries of the input image, where kernel vector is expected to extend to
+                 * Under "else", pixelForConvolution is identified first and ARGB components of it are individually convoluted
+                 * Convoluted ARGB values of pixelConvolution are packed into convolutedPixel and is placed in the "result" array (output image)
+                 * */
                 for(int j=0; j<size; j++){
                     {
-                        //kernelVector[j] = (math.exp(-(((j - radius) * (j - radius))) / (2 * (sigma * sigma)))) / Math.pow((2 * Math.PI * (sigma * sigma)),0.5);
-
                         if ((x + (j - radius)) < 0 || (x + (j - radius)) >= width) {
                             BB = BB;
                             GG = GG;
                             RR = RR;
                         } else {
-                            conv = pixels[((y) * width) + (x + (j - radius))];
-                            BB = (BB + (conv & 0xff) * kernelVector[j]);
-                            GG = (GG + (((conv >> 8) & 0xff) * kernelVector[j]));
-                            RR = (RR + (((conv >> 16) & 0xff) * kernelVector[j]));
-                            AA = (conv >> 24) & 0xff;
+                            pixelForConvolution = pixels[((y) * width) + (x + (j - radius))];
+                            BB = (BB + (pixelForConvolution & 0xff) * kernelVector[j]);
+                            GG = (GG + (((pixelForConvolution >> 8) & 0xff) * kernelVector[j]));
+                            RR = (RR + (((pixelForConvolution >> 16) & 0xff) * kernelVector[j]));
+                            AA = (pixelForConvolution >> 24) & 0xff;
                         }
                     }
                 }
-                color = ( (int)AA & 0xff) << 24 | ( ((int)RR) & 0xff) << 16 | ( ((int)GG) & 0xff) << 8 | ( ((int)BB) & 0xff);
-                result[y*width+x] = color;
+                convolutedPixel = ( (int)AA & 0xff) << 24 | ( ((int)RR) & 0xff) << 16 | ( ((int)GG) & 0xff) << 8 | ( ((int)BB) & 0xff);
+                result[y*width+x] = convolutedPixel;
+            }
 
-                //Vector-2
+        }
+
+        /**This for-loop marks the start of the convolution algorithm - involving Vertical Kernel operations
+         * Variable "y" will ensure vertical traversal through the "pixels" array (input image)
+         * Sigma value is dynamically computed for far, near, a1, a2, and a3 regions - all of which are dependent on the vertical axis of the input image
+         * Radius and size of the kernel are computed
+         * Regions of the input image between a1 and a2 are kept in-focus
+         * */
+        for (int y=0; y<height; y++){
+            if(y < a0){
+                sigma = s_far;
+                radius = (int)math.ceil(3*sigma);
+                size = (2*radius) + 1;
+                if(sigma < 0.7f){
+                    continue;
+                }
+            }
+            else if( (y < a1) && (y >= a0) ){
+                sigma =  (s_far * (a1 - y)) / (a1-a0);
+                radius = (int)math.ceil(3*sigma);
+                size = (2*radius) + 1;
+                if(sigma < 0.7f){
+                    continue;
+                }
+            }
+            else if( ( y >= a1) && (y<=a2) ){
+                continue;
+            }
+            else if( (y > a2) && (y <= a3) ){
+                sigma = (s_near * (y - a2)) / (a3-a2);
+                radius = (int)math.ceil(3*sigma);
+                size = (2*radius) + 1;
+                if(sigma < 0.7f){
+                    continue;
+                }
+            }
+            else{
+                sigma = s_near;
+                radius = (int)math.ceil(3*sigma);
+                size = (2*radius) + 1;
+                if(sigma < 0.7f){
+                    continue;
+                }
+            }
+
+            /**This for-loop computes the (vertical) kernel vector
+             * */
+            for(int j=0; j<size; j++) {
+                kernelVector[j] = (float) ((math.exp(-(((j - radius) * (j - radius))) / (2 * (sigma * sigma)))) / Math.pow((2 * Math.PI * (sigma * sigma)), 0.5));
+            }
+
+            /**This for-loop allows traversal of the input image along its width
+             * ARGB values of the "result" pixel are initialized to zero
+             * */
+            for (int x = 0; x<width; x++){
+
+                /**Actual convolution of pixelForConvolution happens in this for-loop
+                 * Logic under "if" ensures that pixels are unaltered beyond the boundaries of the input image, where kernel vector is expected to extend to
+                 * Under "else", pixelForConvolution is identified first and ARGB components of it are individually convoluted
+                 * Convoluted ARGB values of pixelConvolution are packed into convolutedPixel and is placed in the "result" array (output image)
+                 * */
                 BB=0;
                 GG=0;
                 RR=0;
                 AA=0;
                 for(int i=0; i<size; i++){
                     {
-                        //kernelVector[i] = (math.exp(-(((i - radius) * (i - radius))) / (2 * (sigma * sigma)))) / Math.pow((2 * Math.PI * (sigma * sigma)),0.5);
-
                         if ((y + (i - radius)) < 0 || (y + (i - radius)) >= height){
                             BB = BB;
                             GG = GG;
                             RR = RR;
                         }
                         else {
-                            conv = pixels[((y+(i - radius)) * width) + (x)];
-                            BB = (BB + (conv & 0xff) * kernelVector[i]);
-                            GG = (GG + (((conv >> 8) & 0xff) * kernelVector[i]));
-                            RR = (RR + (((conv >> 16) & 0xff) * kernelVector[i]));
-                            AA = (conv >> 24) & 0xff;
+                            pixelForConvolution = result[((y+(i - radius)) * width) + (x)];
+                            BB = (BB + (pixelForConvolution & 0xff) * kernelVector[i]);
+                            GG = (GG + (((pixelForConvolution >> 8) & 0xff) * kernelVector[i]));
+                            RR = (RR + (((pixelForConvolution >> 16) & 0xff) * kernelVector[i]));
+                            AA = (pixelForConvolution >> 24) & 0xff;
                         }
                     }
                 }
-                color = ( (int)AA & 0xff) << 24 | ( ((int)RR) & 0xff) << 16 | ( ((int)GG) & 0xff) << 8 | ( ((int)BB) & 0xff);
-                result[y*width+x] = color;
+                convolutedPixel = ( (int)AA & 0xff) << 24 | ( ((int)RR) & 0xff) << 16 | ( ((int)GG) & 0xff) << 8 | ( ((int)BB) & 0xff);
+                pixels[y*width+x] = convolutedPixel;
             }
 
         }
 
-        //Setting the computed pixels into the Bitmap object
-        out.setPixels(result,offset,stride,0,0,width,height);
-
+        /**"result" array is flushed into the Bitmap object "out" and is returned back to MainActivity.java where it gets displayed as the output image
+         * */
+        out.setPixels(pixels,offset,stride,0,0,width,height);
         return out;
     }
+
+    /**"tiltshift_cpp" is the C++ implementation of the Speedy Tilt Shift algorithm
+     * This method obtains variables from the caller function in SpeedyTiltShift.java
+     * Variables obtained as such, from MainActivity.java are,
+     *                                  Bitmap in     - the input image whose blurring is to be performed is obtained as a Bitmap object
+     *                                  s_far, s_near - absolute boundaries that define the gradient in blur
+     *                                  a0-a3         - intermediate boundaries that define the gradient in blur between the absolute boundaries
+     * This method,
+     *              -Initially creates a Bitmap object "out" with the same configuration as that of the input image, to be outputted as the final blurred image
+     *              -Pixels from the input image are obtained using the getPixels function (a function of Bitmap class)
+     *              -Method "nativeTiltShift" that implements native C++ is called. pixels, width, height, a0-a3, s_far/near are passed as parameters
+     *              -A "result" array is maintained to contain the convoluted pixels, obtained from nativeTiltShift, which is returned back to MainActivity.java
+     * */
     public static Bitmap tiltshift_cpp(Bitmap in, int a0, int a1, int a2, int a3, float s_far, float s_near){
+        Bitmap out;
+        out=in.copy(in.getConfig(),true);
+        int width = in.getWidth();
+        int height = in.getHeight();
+        int offset=0;
+        int stride = width;
+
+        int[] pixels = new int[width*height];
+        in.getPixels(pixels,offset,stride,0,0,width,height);
+
+        int[] result = new int[width*height];
+        result = nativeTiltShift(pixels, width, height, a0, a1, a2, a3, s_far, s_near);
+
+        //Log.d("TILTSHIFT_CPP","width: "+width+" height:"+height);
+
+        out.setPixels(result,offset,stride,0,0,width,height);
+        return out;
+    }
+
+    /**"tiltshift_neon" is the NEON implementation of the Speedy Tilt Shift algorithm
+     * This method obtains variables from the caller function in SpeedyTiltShift.java
+     * Variables obtained as such, from MainActivity.java are,
+     *                                  Bitmap in     - the input image whose blurring is to be performed is obtained as a Bitmap object
+     *                                  s_far, s_near - absolute boundaries that define the gradient in blur
+     *                                  a0-a3         - intermediate boundaries that define the gradient in blur between the absolute boundaries
+     * This method,
+     *              -Initially creates a Bitmap object "out" with the same configuration as that of the input image, to be outputted as the final blurred image
+     *              -Pixels from the input image are obtained using the getPixels function (a function of Bitmap class)
+     *              -Method "nativeTiltShiftNeon" that implements native NEON is called. pixels, width, height, a0-a3, s_far/near are passed as parameters
+     *              -A "result" array is maintained to contain the convoluted pixels, obtained from nativeTiltShift, which is returned back to MainActivity.java
+     * */
+    public static Bitmap tiltshift_neon(Bitmap in, int a0, int a1, int a2, int a3, float s_far, float s_near){
         Bitmap out;
         out=in.copy(in.getConfig(),true);
         int imgW = in.getWidth();
@@ -219,38 +336,8 @@ public class SpeedyTiltShift {
 
         int[] pixels = new int[(imgW)*(imgH)];
         in.getPixels(pixels,offset,stride,0,0,imgW,imgH);
-
-        nativeTiltShift(pixels, imgW, imgH, a0, a1, a2, a3, s_far, s_near);
-
-        Log.d("TILTSHIFT_CPP","width: "+imgW+" height:"+imgH);
-
-        out.setPixels(pixels,offset,stride,0,0,imgW,imgH);
-        return out;
-    }
-    public static Bitmap tiltshift_neon(Bitmap in, int a0, int a1, int a2, int a3, float s_far, float s_near){
-        //Bitmap out;
-
-        //out=in.copy(in.getConfig(),true);
-
-
-        int imgW = in.getWidth(); int imgW1 = imgW+18;
-        int imgH = in.getHeight(); int imgH1 = imgH+18;
-        Bitmap out = createBitmap(imgW1, imgH1, in.getConfig());
-        Log.d("TILTSHIFT_CPP","width: "+out.getWidth()+" height:"+out.getHeight()+" config:"+out.getConfig());
-        out.setHeight(imgH1);
-        out.setWidth(imgW1);
-        Log.d("TILTSHIFT_CPP","width: "+out.getWidth()+" height:"+out.getHeight()+" config:"+out.getConfig());
-        int offset=0;
-        int stride = imgW;
-        int stride1 = imgW1;
-
-        int[] pixels = new int[(imgW)*(imgH)];
-        //int[] pixels1 = new int[(imgW+18)*(imgH+18)];
-        in.getPixels(pixels,offset,stride,0,0,imgW,imgH);
-
-
         nativeTiltShiftNeon(pixels, imgW, imgH, a0, a1, a2, a3, s_far, s_near);
-        //out.setPixels(pixels1,offset,stride,0,0,imgW1,imgH1);
+
         out.setPixels(pixels,offset,stride,0,0,imgW,imgH);
 
         return out;
