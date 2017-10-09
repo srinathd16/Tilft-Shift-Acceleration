@@ -9,9 +9,6 @@ import android.widget.Toast;
 
 import static android.graphics.Bitmap.createBitmap;
 
-/**
- * Created by roblkw on 7/26/17.
- */
 /**This file/class is called by MainActivity.java
  * Includes the class SpeedyTilt Shift, containing calls to functions that implement the Speedy Tilt Shift Algorithm in Java, C++, and NEON respectively
  *
@@ -72,7 +69,7 @@ public class SpeedyTiltShift {
          * Kernel vector size is computed using 2(ceil(3*maximum_value_of_sigma))+1
          * maximumSigma and kernelSize are integer type intermediate variables in computing the size of the kernel vector
          * */
-        int maximumSigma = (int) Math.max(s_near, s_far);
+        float maximumSigma = Math.max(s_near, s_far);
         int kernelSize = (int) (2*(Math.ceil(3*maximumSigma))+1);
         float[] kernelVector = new float[kernelSize];
 
@@ -329,19 +326,24 @@ public class SpeedyTiltShift {
     public static Bitmap tiltshift_neon(Bitmap in, int a0, int a1, int a2, int a3, float s_far, float s_near){
         Bitmap out;
         out=in.copy(in.getConfig(),true);
-        int imgW = in.getWidth();
-        int imgH = in.getHeight();
+        int inWidth = in.getWidth();
+        int inHeight = in.getHeight();
         int offset=0;
-        int stride = imgW;
+        int stride = inWidth;
 
-        int[] pixels = new int[(imgW)*(imgH)];
-        in.getPixels(pixels,offset,stride,0,0,imgW,imgH);
-        nativeTiltShiftNeon(pixels, imgW, imgH, a0, a1, a2, a3, s_far, s_near);
+        int[] pixels = new int[inWidth*inHeight];
+        in.getPixels(pixels,offset,stride,0,0,inWidth,inHeight);
 
-        out.setPixels(pixels,offset,stride,0,0,imgW,imgH);
+        int[] result = new int[inWidth*inHeight];
+        result = nativeTiltShiftNeon(pixels, inWidth, inHeight, a0, a1, a2, a3, s_far, s_near);
+
+        out.setPixels(result,offset,stride,0,0,inWidth,inHeight);
 
         return out;
     }
+
+    /**Prototypes for nativeTiltShift and nativeTiltShiftNeon
+     * */
     private static native int[] nativeTiltShift(int[] pixels, int imgW, int imgH, int a0, int a1, int a2, int a3, float s_far, float s_near);
     private static native int[] nativeTiltShiftNeon(int[] pixels, int imgW, int imgH, int a0, int a1, int a2, int a3, float s_far, float s_near);
 

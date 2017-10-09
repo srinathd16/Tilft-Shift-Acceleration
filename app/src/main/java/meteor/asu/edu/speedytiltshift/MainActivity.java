@@ -26,9 +26,34 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Objects;
 
+/**This file in top of the project hierarchy
+ * Includes the class MainActivity containing calls to overridden functions, to on-click methods, and to Speedy Tilt Shift  methods
+ *
+ */
+
+/**MainActivity class is the interface for the first and only interface of the SpeedyTiltShift application
+ * It contains calls to overridden methods,
+ *              -onCreate - invoked every time the application is launched
+ *              -onActivityResult - invoked after an input image has been selected (by clicking the button LOAD)
+ * Calls to methods that are required to execute upon a button click are also included,
+ *              -displayOriginalImage - invoked upon clicking ORIGINAL button
+ *              -loadImage - invoked upon clicking LOAD button
+ *              -saveImage - invoked upon clicking SAVE button
+ *                           This method calls a few other methods, needed to complete saving the output image into the device.
+ *                           The output image gets saved in the application directory, typically at,
+ *                             /storage/emulated/0/Android/data/meteor.asu.edu.speedytiltshift/Files.
+ *                  -isExternalStorageWritable - checks if permissions are available to write to external storage.
+ *                  -createOutputImage - creates a format for output image and sets up file streaming to it.
+ *                          This method calls getOutputImage.
+ *                          getOutputImage - provides a name to the output image file and saves it on external storage.
+ */
 public class MainActivity extends AppCompatActivity {
 
-
+    /**Declaring global objects
+     * "bmpIn" and "bmpOut" will be required throughout the class to perform operations on input and output images
+     * "imageView" object gives access to the area of the app as displayed on the screen that display the image
+     * All Button objects are made global to provide ease of access to activation and deactivation of the buttons from each method
+     * */
     private Bitmap bmpIn;
     private Bitmap bmpOut;
     private ImageView imageView;
@@ -38,6 +63,11 @@ public class MainActivity extends AppCompatActivity {
     private Button button5;
     private Button button6;
 
+    /**This method is called every time the application is launched
+     * Layout of the activity as defined in activity_main.xml is loaded here; imageView being a part of it
+     * ORIGINAL buttons, all the TILT SHIFT buttons, and the SAVE button are disabled, as they do not have any
+     *  meaningful functionality at this point.
+     * */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -68,6 +98,15 @@ public class MainActivity extends AppCompatActivity {
         button6.setClickable(false);
     }
 
+    /**This method is called every time an image is loaded into the imageView using the LOAD button
+     * It is precisely invoked after the image is selected and the context switches back to the main activity of the application
+     * Logic to convert the loaded image into a Bitmap object is also handled here
+     *      A Uri object is created to get the image from the Intent object and is then fed into the InputStream object
+     *      A Bitmap object is finally created by using decodeStream (a method of BitmapFactory) from "imageStream"
+     *      This Bitmap object is displayed on the screen by using the setImageBitmap function of "imageView"
+     *      Logic to scale the input image is also included in this method, using createScaledBitmap function of Bitmap
+     *      This scaled bitmap is assigned to the object ""bmpIn", which is later used by all the Tilt Shift algorithms
+     * */
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
         super.onActivityResult(requestCode, resultCode, intent);
@@ -75,25 +114,23 @@ public class MainActivity extends AppCompatActivity {
         if (resultCode == RESULT_OK) {
             try {
                 Uri imageUri = intent.getData();
-                //Cursor returnCursor = getContentResolver().query(imageUri, null, null, null, null);
-                //int nameIndex = returnCursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
-                //String fname = returnCursor.getString(nameIndex);
                 InputStream imageStream = getContentResolver().openInputStream(imageUri);
                 Bitmap selectedImage = BitmapFactory.decodeStream(imageStream);
                 imageView.setImageBitmap(selectedImage);
 
-
-                //Log.d("INPUT_FILE_PATH", "path= "+fname);
                 Bitmap scaledBitmap = Bitmap.createScaledBitmap(selectedImage,650,650,false);
 
-                ///Following code assigns the image obtained from Gallery into "bmpIn"
-                ///Comment the following lines, if using the below segment to load the image from /drawable
-                ///Configuration of the following Bitmap object bmpIn is retained to be ARGB_8888
-                bmpIn = selectedImage;
+                /**Following code assigns the image obtained from Gallery into "bmpIn"
+                 * Comment the following lines, if using the below segment to load the image from /drawable
+                 * Configuration of the following Bitmap object bmpIn is retained to be ARGB_8888
+                 * uncomment the selectedImage option if you don't wish to scale the image
+                 */
+                bmpIn = scaledBitmap;
+                //bmpIn = selectedImage;
                 imageView = (ImageView) findViewById(R.id.imageView);
                 Log.d("BMPCONFIG", "bmpin.config: "+bmpIn.getConfig());
 
-                ///Uncomment the following to load images from /drawable
+                /**Uncomment the following to load images from /drawable*/
                 //BitmapFactory.Options opts = new BitmapFactory.Options();
                 //opts.inPreferredConfig = Bitmap.Config.ARGB_8888; // Each pixel is 4 bytes: Alpha, Red, Green, Blue
                 //bmpIn = BitmapFactory.decodeResource(getResources(), R.drawable.input, opts);
@@ -109,12 +146,12 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    //This function is invoked upon the button click of ORIGINAL in the MainActivity
-    public void displayoriginalimage(View view){
-        //BitmapFactory.Options opts = new BitmapFactory.Options();
-        //opts.inPreferredConfig = Bitmap.Config.ARGB_8888; // Each pixel is 4 bytes: Alpha, Red, Green, Blue
-        //bmpIn = BitmapFactory.decodeResource(getResources(), R.drawable.input, opts);
-        //imageView = (ImageView) findViewById(R.id.imageView);
+    /**This function is invoked upon clicking ORIGINAL in the MainActivity
+     * The image selected after clicking LOAD and after it has been scaled in onActivityResult is displayed here using imageView
+     * After the click, the button is disabled
+     * Also, all TILT SHIFT buttons are enabled at this point
+     **/
+    public void displayOriginalImage(View view){
         ///And when clicked, the input image is displayed
         imageView.setImageBitmap(bmpIn);
         //Greying out ORIGINAL button after click
@@ -142,7 +179,11 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void loadimage(View view){
+    /**This function is invoked upon clicking the LOAD button
+     * An Intent object "galleryIntent" is created to handle the process of selecting (pick) an image
+     * ALL TILT SHIFT buttons are enabled at this point
+     * */
+    public void loadImage(View view){
         Intent galleryIntent = new Intent(Intent.ACTION_PICK);
         galleryIntent.setType("image/*");
         startActivityForResult(galleryIntent, 1);
@@ -167,7 +208,12 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void saveimage(View view) throws IOException {
+    /**This method is invoked upon clicking the SAVE button
+     * The isExternalStorageWritable method is called
+     * "createOutputImage" method is called from here and "bmpOut" is passed along
+     * SAVE button is disabled after it as been clicked to avoid duplicate saving of the image
+     * */
+    public void saveImage(View view) throws IOException {
         Log.d("ExternalStorageWritable", ""+isExternalStorageWritable());
         //getAlbumStorageDir("TiltShift");
         //Disabling SAVE
@@ -177,6 +223,10 @@ public class MainActivity extends AppCompatActivity {
         button6.setClickable(false);
     }
 
+    /**This method is called by saveImage
+     * It checks if permissions have been granted to write onto external storage by
+     *   checking if the value of getExternalStorageState method is true
+     * */
     public boolean isExternalStorageWritable() {
         String state = Environment.getExternalStorageState();
         if (Environment.MEDIA_MOUNTED.equals(state)) {
@@ -185,17 +235,27 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
+    /**This method is called by saveImage
+     * A File object is created by calling the getOutputImage method
+     * The obtained image in the imageOut object is compressed to JPEG format from Bitmap
+     * */
     private void createOutputImage(Bitmap image) throws IOException {
         File imageOut = getOutputImage();
         if (imageOut == null) {
             return;
         }
         FileOutputStream fo = new FileOutputStream(imageOut);
-        image.compress(Bitmap.CompressFormat.PNG, 90, fo);
+        image.compress(Bitmap.CompressFormat.JPEG, 90, fo);
         fo.close();
-        
+
     }
 
+    /**This method is called by createOutputImage
+     * Directory where the image has to be saved, which is hardcoded here to be the application directory,
+     *      is bought into a File object outImageDir
+     *      - Typical path is: /storage/emulated/0/Android/data/meteor.asu.edu.speedytiltshift/Files
+     * Also to avoid mismatch in the names of the output images, timestamp is appended to the name
+     * */
     private  File getOutputImage(){
         File outImageDir = new File(Environment.getExternalStorageDirectory()+ "/Android/data/"+ getApplicationContext().getPackageName()+ "/Files");
         if (! outImageDir.exists()){
@@ -207,11 +267,19 @@ public class MainActivity extends AppCompatActivity {
         File tempOut;
         String outImageName="Blur"+ timeStamp +".jpg";
         tempOut = new File(outImageDir.getPath() + File.separator + outImageName);
+        Log.d("FILEPATH","outputimagepath: "+outImageDir.getPath());
         return tempOut;
     }
 
-    //This function is invoked upon the button click of TILT SHIFT (JAVA) in the MainActivity
-    public void tiltshiftjava(View view){
+    /**This method is invoked upon clicking the TILT SHIFT (JAVA) button in the MainActivity
+     * Before calling the "SpeedyTiltShift.tiltshift_java" method, TILTSHIFT_JAVA is disabled (after the click),
+     *      ORIGINAL and SAVE buttons are enabled
+     * The method "tiltshift_java" defined in SpeedTiltShift.java is invoked, which implements the Tilt Shift algorithm in Java
+     *      and returns a Bitmap object (containing the blurred image) which is captured in the object "bmpOut"
+     * Logic to compute the time taken for the "tiltshift_java" method to execute is included in this method, using the method
+     *      "System.currentTimeMillis()". This time is displayed using a TextView
+     * */
+    public void tiltShiftJava(View view){
         //Greying out TILT SHIFT (JAVA) button after click
         button3 = (Button) findViewById(R.id.button3);
         button3.setAlpha(0.5f);
@@ -244,8 +312,15 @@ public class MainActivity extends AppCompatActivity {
         Log.d("TILTSHIFT_JAVA","time:"+elapsed_time);
     }
 
-    //This function is invoked upon the button click of TILT SHIFT (C++) in the MainActivity
-    public void tiltshiftcpp(View view){
+    /**This method is invoked upon clicking the TILT SHIFT (C++) button in the MainActivity
+     * Before calling the "SpeedyTiltShift.tiltshift_cpp" method, TILT SHIFT (C++) button is disabled (after the click),
+     *      ORIGINAL and SAVE buttons are enabled
+     * The method "tiltshift_cpp" defined in SpeedTiltShift.java is invoked, which implements the Tilt Shift algorithm in C++
+     *      and returns a Bitmap object (containing the blurred image) which is captured in the object "bmpOut"
+     * Logic to compute the time taken for the "tiltshift_cpp" method to execute is included in this method, using the method
+     *      "System.currentTimeMillis()". This time is displayed using a TextView
+     * */
+    public void tiltShiftCpp(View view){
         //Greying out TILT SHIFT (C++) button after click
         button2 = (Button) findViewById(R.id.button2);
         button2.setAlpha(0.5f);
@@ -265,7 +340,7 @@ public class MainActivity extends AppCompatActivity {
         elapsed_time_text = (TextView) findViewById(R.id.textView3);
         long current_time = System.currentTimeMillis();
 
-        //Calling tiltshift_java
+        //Calling tiltshift_cpp
         bmpOut = SpeedyTiltShift.tiltshift_cpp(bmpIn, 100, 150, 280, 370, 5.0f, 5.0f);
 
         //Computing elapsed time
@@ -277,8 +352,15 @@ public class MainActivity extends AppCompatActivity {
         imageView.setImageBitmap(bmpOut);
     }
 
-    //This function is invoked upon the button click of TILT SHIFT (NEON) in the MainActivity
-    public void tiltshiftneon(View view){
+    /**This method is invoked upon clicking the TILT SHIFT (NEON) button in the MainActivity
+     * Before calling the "SpeedyTiltShift.tiltshift_neon" method, TILT SHIFT (NEON) button is disabled (after the click),
+     *      ORIGINAL and SAVE buttons are enabled
+     * The method "tiltshift_neon" defined in SpeedTiltShift.java is invoked, which implements the Tilt Shift algorithm in NEON
+     *      and returns a Bitmap object (containing the blurred image) which is captured in the object "bmpOut"
+     * Logic to compute the time taken for the "tiltshift_neon" method to execute is included in this method, using the method
+     *      "System.currentTimeMillis()". This time is displayed using a TextView
+     * */
+    public void tiltShiftNeon(View view){
         //Greying out TILT SHIFT (NEON) button after click
         button5 = (Button) findViewById(R.id.button5);
         button5.setAlpha(0.5f);
