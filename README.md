@@ -8,7 +8,7 @@
       * Use the LOAD button to load an input image.
       * Use either of the TILT buttons to use a specific implementation (C++, JAVA, ARM NEON Intrinsics) to generate the output image.
       * Use the SAVE button to save the output image.
-    * Performance Measurements
+    * Performance Measurements:
       * Time taken for each of the implementations to generate an output image is displayed
   
 * Implementation Languages
